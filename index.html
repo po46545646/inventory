@@ -1,12 +1,14 @@
 <!-- 
     =======================================================
-    🚀 掌上庫存系統 v3.5 (正式發布版 - 無設定畫面)
+    🚀 掌上庫存系統 v3.6 (全平台通用版 - RWD 響應式設計)
     =======================================================
     
     更動說明：
-    1. 移除所有「設定資料庫連線」的介面，使用者再也看不到 JSON 輸入框。
-    2. 啟動即連線：打開網頁直接顯示 Google 登入。
-    3. 開發者設定區：請在下方填入您的 Firebase Config。
+    1. 加入 RWD 響應式斷點 (md:, lg:)，同時支援手機、平板與電腦。
+    2. 電腦版：商品列表改為 Grid 網格佈局。
+    3. 電腦版：編輯與詳情頁面改為置中 Modal 彈窗設計，不再是全螢幕覆蓋。
+    4. 優化頂部導航欄在寬螢幕上的顯示限制。
+    5. 保留所有 Firebase Hardcode 設定邏輯與 Google 登入功能。
 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
@@ -36,12 +38,16 @@
 
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f3f4f6; }
-        ::-webkit-scrollbar { width: 0px; background: transparent; }
+        ::-webkit-scrollbar { width: 6px; background: transparent; }
+        ::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 3px; }
         .ios-input { -webkit-appearance: none; }
         @keyframes fade-in-up { from { opacity: 0; transform: translate(-50%, 20px); } to { opacity: 1; transform: translate(-50%, 0); } }
         .toast-enter { animation: fade-in-up 0.3s ease-out forwards; }
         @keyframes shine { 0% { background-position: 200% center; } 100% { background-position: -200% center; } }
         .ai-gradient { background: linear-gradient(to right, #4f46e5, #9333ea, #4f46e5); background-size: 200% auto; animation: shine 3s linear infinite; }
+        
+        /* PC Modal Scroll Fix */
+        .modal-scroll { -webkit-overflow-scrolling: touch; }
     </style>
 </head>
 <body>
@@ -186,16 +192,16 @@
         };
 
         const ProductCard = ({ product, onClick }) => (
-            <div onClick={onClick} className="bg-white rounded-xl shadow-sm p-4 flex items-center gap-4 active:bg-gray-50 transition-colors cursor-pointer border border-gray-100 relative overflow-hidden">
+            <div onClick={onClick} className="bg-white rounded-xl shadow-sm p-4 flex items-center gap-4 active:bg-gray-50 hover:bg-blue-50 transition-colors cursor-pointer border border-gray-100 relative overflow-hidden h-full group">
                 {product.description && <div className="absolute top-0 right-0 w-3 h-3 bg-purple-400 rounded-bl-lg"></div>}
-                <div className="w-20 h-20 bg-gray-100 rounded-lg flex-shrink-0 overflow-hidden relative">
+                <div className="w-20 h-20 bg-gray-100 rounded-lg flex-shrink-0 overflow-hidden relative group-hover:scale-105 transition-transform duration-300">
                     {product.image ? <img src={product.image} className="w-full h-full object-cover" /> : <ImageIcon className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-gray-400" size={24} />}
                 </div>
                 <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-gray-800 text-lg truncate">{product.name}</h3>
+                    <h3 className="font-bold text-gray-800 text-lg truncate group-hover:text-blue-600 transition-colors">{product.name}</h3>
                     <p className="text-gray-500 text-sm flex items-center gap-1"><Barcode size={14} /> {product.barcode}</p>
                     <div className="mt-2 flex flex-col gap-1">
-                        <div className="flex gap-2 overflow-x-auto pb-1">
+                        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
                             {product.platforms && product.platforms.length > 0 ? product.platforms.map((p, idx) => (<span key={idx} className="bg-blue-50 text-blue-700 text-xs px-2 py-1 rounded-md whitespace-nowrap">{p.name}: ${p.price}</span>)) : <span className="text-gray-400 text-xs">無價格設定</span>}
                         </div>
                         {product.lastEditor && <div className="text-[10px] text-gray-400 flex items-center gap-1"><User size={10} /> {product.lastEditor.split ? product.lastEditor.split('@')[0] : 'Admin'}</div>}
@@ -285,31 +291,33 @@
             const [tempKey, setTempKey] = React.useState(apiKey || '');
 
             return (
-                <div className="min-h-screen bg-gray-100 flex flex-col">
-                    <div className="bg-white p-4 shadow-sm flex items-center gap-3">
-                        <button onClick={onClose}><ArrowLeft className="text-gray-600" /></button>
-                        <h1 className="text-lg font-bold text-gray-800">系統設定</h1>
-                    </div>
-                    <div className="p-4 space-y-6">
-                        <div className="bg-white p-4 rounded-xl shadow-sm">
-                            <h2 className="text-sm font-bold text-gray-500 uppercase mb-4 flex items-center gap-2"><User size={16} /> 帳號資訊</h2>
-                            <div className="text-lg font-medium text-gray-800">{userEmail}</div>
-                            <div className="text-xs text-green-600 mt-1 font-bold">雲端同步中</div>
+                <div className="min-h-screen bg-gray-100 flex flex-col items-center">
+                    <div className="w-full max-w-2xl bg-white min-h-screen shadow-2xl md:min-h-0 md:h-auto md:my-10 md:rounded-2xl overflow-hidden">
+                        <div className="bg-white p-4 shadow-sm flex items-center gap-3 sticky top-0 z-10">
+                            <button onClick={onClose}><ArrowLeft className="text-gray-600" /></button>
+                            <h1 className="text-lg font-bold text-gray-800">系統設定</h1>
                         </div>
-                        <div className="bg-white p-4 rounded-xl shadow-sm">
-                            <h2 className="text-sm font-bold text-blue-600 uppercase mb-4 flex items-center gap-2"><Users size={16} /> 公司/團隊共用設定</h2>
-                            <p className="text-sm text-gray-500 mb-3">輸入相同的「公司代碼」，不同帳號即可存取同一份庫存資料。</p>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">公司代碼</label>
-                            <input value={tempId} onChange={(e) => setTempId(e.target.value)} placeholder="例如: my_shop_888" className="w-full p-3 bg-gray-50 rounded-lg border outline-none" />
-                            <div className="mt-2 text-xs text-gray-400">{tempId ? `目前代碼: ${tempId}` : "目前模式：個人私有"}</div>
-                        </div>
-                        <div className="bg-white p-4 rounded-xl shadow-sm">
-                            <h2 className="text-sm font-bold text-purple-600 uppercase mb-4 flex items-center gap-2"><Key size={16} /> Gemini API 設定 (AI 功能)</h2>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">API Key</label>
-                            <input type="password" value={tempKey} onChange={(e) => setTempKey(e.target.value)} placeholder="AIzaSy..." className="w-full p-3 bg-gray-50 rounded-lg border outline-none" />
-                        </div>
+                        <div className="p-6 space-y-6">
+                            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                                <h2 className="text-sm font-bold text-gray-500 uppercase mb-4 flex items-center gap-2"><User size={16} /> 帳號資訊</h2>
+                                <div className="text-lg font-medium text-gray-800">{userEmail}</div>
+                                <div className="text-xs text-green-600 mt-1 font-bold">雲端同步中</div>
+                            </div>
+                            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                                <h2 className="text-sm font-bold text-blue-600 uppercase mb-4 flex items-center gap-2"><Users size={16} /> 公司/團隊共用設定</h2>
+                                <p className="text-sm text-gray-500 mb-3">輸入相同的「公司代碼」，不同帳號即可存取同一份庫存資料。</p>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">公司代碼</label>
+                                <input value={tempId} onChange={(e) => setTempId(e.target.value)} placeholder="例如: my_shop_888" className="w-full p-3 bg-gray-50 rounded-lg border outline-none" />
+                                <div className="mt-2 text-xs text-gray-400">{tempId ? `目前代碼: ${tempId}` : "目前模式：個人私有"}</div>
+                            </div>
+                            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                                <h2 className="text-sm font-bold text-purple-600 uppercase mb-4 flex items-center gap-2"><Key size={16} /> Gemini API 設定 (AI 功能)</h2>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">API Key</label>
+                                <input type="password" value={tempKey} onChange={(e) => setTempKey(e.target.value)} placeholder="AIzaSy..." className="w-full p-3 bg-gray-50 rounded-lg border outline-none" />
+                            </div>
 
-                        <button onClick={() => { setCompanyId(tempId.trim()); setApiKey(tempKey.trim()); onClose(); }} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg mt-4">儲存設定</button>
+                            <button onClick={() => { setCompanyId(tempId.trim()); setApiKey(tempKey.trim()); onClose(); }} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg mt-4 hover:bg-blue-700 transition-colors">儲存設定</button>
+                        </div>
                     </div>
                 </div>
             );
@@ -515,74 +523,169 @@
             if (view === 'scan') return <><Scanner onScan={(code)=>{ setView('list'); if (scanCallback==='edit') { setCurrentProduct(p=>({...p, barcode:code})); setView('edit'); } else { const found = products.find(p=>p.barcode===code); if(found){ setCurrentProduct(found); setView('detail'); } else if(confirm('查無此商品，新增嗎？')) { setCurrentProduct({name:'', barcode:code, platforms:[{name:'蝦皮',price:''},{name:'FB',price:''},{name:'現場',price:''}], customFields:[]}); setView('edit'); } } setScanCallback(null); }} onClose={() => setView(scanCallback === 'edit' ? 'edit' : 'list')} />{toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}</>;
 
             return (
-                <div className="min-h-screen pb-24">
-                    <div className="bg-blue-600 text-white p-6 rounded-b-3xl shadow-lg sticky top-0 z-20">
-                        <div className="flex justify-between items-center mb-4">
-                            <h1 className="text-2xl font-bold">我的庫存 {companyId && <span className="text-xs bg-blue-800 px-2 py-1 rounded ml-2">{companyId}</span>}</h1>
-                            <div className="flex gap-2">
-                                <button onClick={handleExportCSV} className="p-2"><Download size={24} /></button>
-                                <button onClick={() => setView('settings')} className="p-2"><Settings size={24} /></button>
-                                <button onClick={handleLogout} className="p-2"><LogOut size={24} /></button>
+                <div className="min-h-screen pb-24 bg-gray-100">
+                    <div className="bg-blue-600 text-white p-6 rounded-b-3xl md:rounded-none shadow-lg sticky top-0 z-20">
+                        <div className="max-w-7xl mx-auto">
+                            <div className="flex justify-between items-center mb-4">
+                                <h1 className="text-2xl font-bold flex items-center gap-2">我的庫存 {companyId && <span className="text-xs bg-blue-800 px-2 py-1 rounded ml-2 hidden md:inline-block">{companyId}</span>}</h1>
+                                {companyId && <span className="text-xs bg-blue-800 px-2 py-1 rounded ml-2 md:hidden">{companyId}</span>}
+                                <div className="flex gap-2">
+                                    <button onClick={handleExportCSV} className="p-2 hover:bg-blue-700 rounded-full transition-colors" title="匯出 CSV"><Download size={24} /></button>
+                                    <button onClick={() => setView('settings')} className="p-2 hover:bg-blue-700 rounded-full transition-colors" title="設定"><Settings size={24} /></button>
+                                    <button onClick={handleLogout} className="p-2 hover:bg-blue-700 rounded-full transition-colors" title="登出"><LogOut size={24} /></button>
+                                </div>
+                            </div>
+                            <div className="flex gap-2 items-center relative">
+                                <div className="relative flex-1"><Search className="absolute left-3 top-3 text-blue-200" size={20} /><input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="搜尋商品名稱或條碼..." className="w-full bg-blue-700/50 text-white placeholder-blue-200 rounded-xl py-3 pl-10 outline-none focus:ring-2 focus:ring-blue-400 transition-all" /></div>
+                                <div className="bg-blue-500 hover:bg-blue-400 p-3 rounded-xl cursor-pointer transition-colors" onClick={() => { setScanCallback('search'); setView('scan'); }}><Barcode className="text-white" size={24} /></div>
                             </div>
                         </div>
-                        <div className="flex gap-2 items-center relative">
-                            <div className="relative flex-1"><Search className="absolute left-3 top-3 text-blue-200" size={20} /><input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="搜尋..." className="w-full bg-blue-700/50 text-white placeholder-blue-200 rounded-xl py-3 pl-10 outline-none" /></div>
-                            <div className="bg-blue-500 p-3 rounded-xl cursor-pointer" onClick={() => { setScanCallback('search'); setView('scan'); }}><Barcode className="text-white" size={24} /></div>
+                    </div>
+
+                    <div className="p-4 max-w-7xl mx-auto">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {products.length === 0 ? <div className="col-span-full text-center py-20 text-gray-400"><Barcode size={48} className="mx-auto opacity-20 mb-4" /><p>暫無商品</p></div> : 
+                                products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.barcode.includes(searchTerm)).map(p => (
+                                    <ProductCard key={p.id} product={p} onClick={() => { setCurrentProduct(p); setView('detail'); }} />
+                                ))
+                            }
                         </div>
                     </div>
 
-                    <div className="p-4 space-y-4">
-                        {products.length === 0 ? <div className="text-center py-20 text-gray-400"><Barcode size={48} className="mx-auto opacity-20 mb-4" /><p>暫無商品</p></div> : 
-                            products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.barcode.includes(searchTerm)).map(p => (
-                                <ProductCard key={p.id} product={p} onClick={() => { setCurrentProduct(p); setView('detail'); }} />
-                            ))
-                        }
-                    </div>
-
-                    <button onClick={() => { setCurrentProduct({name:'', barcode:generateRandomBarcode(), platforms:[{name:'蝦皮',price:''},{name:'FB',price:''},{name:'現場',price:''}], customFields:[]}); setView('edit'); }} className="fixed bottom-6 right-6 bg-blue-600 text-white w-14 h-14 rounded-full shadow-xl flex items-center justify-center z-30"><Plus size={28} /></button>
+                    <button onClick={() => { setCurrentProduct({name:'', barcode:generateRandomBarcode(), platforms:[{name:'蝦皮',price:''},{name:'FB',price:''},{name:'現場',price:''}], customFields:[]}); setView('edit'); }} className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 text-white w-14 h-14 rounded-full shadow-xl flex items-center justify-center z-30 transition-transform active:scale-95"><Plus size={28} /></button>
                     
-                    {/* Detail View Overlay */}
+                    {/* Detail View Overlay (Responsive Modal) */}
                     {view === 'detail' && currentProduct && (
-                        <div className="fixed inset-0 z-40 bg-gray-50 flex flex-col overflow-auto">
-                           <div className="w-full h-64 bg-gray-200 relative"><img src={currentProduct.image} className="w-full h-full object-cover" /><button onClick={()=>setView('list')} className="absolute top-4 left-4 p-2 bg-white rounded-full"><ArrowLeft /></button><button onClick={()=>setView('edit')} className="absolute top-4 right-4 p-2 bg-blue-600 text-white rounded-full">編輯</button></div>
-                           <div className="p-6 bg-white rounded-t-3xl -mt-6 flex-1 shadow-lg">
-                               <h1 className="text-2xl font-bold mb-2">{currentProduct.name}</h1>
-                               <div className="flex gap-2 text-gray-500 mb-4 items-center"><Barcode /> {currentProduct.barcode}</div>
-                               {currentProduct.description && <div className="bg-purple-50 p-4 rounded-xl mb-6 text-sm whitespace-pre-wrap">{currentProduct.description}</div>}
-                               <div className="grid grid-cols-2 gap-3 mb-6">{(currentProduct.platforms||[]).map((p,i)=><div key={i} className="bg-blue-50 p-4 rounded-xl text-center"><div className="text-blue-600 font-bold">{p.name}</div><div className="text-xl font-bold">${p.price}</div></div>)}</div>
-                               <div className="bg-orange-50 p-4 rounded-xl mb-4"><div className="flex justify-between font-bold text-orange-800"><span>上次售價</span><span>${currentProduct.lastSoldPrice||0}</span></div>{currentProduct.lastSoldNote && <div className="text-sm mt-2 pt-2 border-t border-orange-200">{currentProduct.lastSoldNote}</div>}</div>
-                               <div className="space-y-2">{(currentProduct.customFields||[]).map((f,i)=><div key={i} className="flex justify-between bg-gray-50 p-3 rounded-lg"><span className="text-gray-500">{f.label}</span><span className="font-bold">{f.value}</span></div>)}</div>
+                        <div className="fixed inset-0 z-40 bg-gray-50 flex flex-col justify-center items-center md:bg-black/60 md:backdrop-blur-sm p-0 md:p-6">
+                           <div className="w-full h-full md:w-full md:max-w-4xl md:h-[85vh] bg-white md:rounded-2xl shadow-2xl flex flex-col overflow-hidden relative">
+                                <div className="w-full h-64 md:h-72 bg-gray-100 relative flex-shrink-0 group">
+                                    <img src={currentProduct.image} className="w-full h-full object-cover" />
+                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors"></div>
+                                    <button onClick={()=>setView('list')} className="absolute top-4 left-4 p-2 bg-white/90 hover:bg-white rounded-full shadow-sm transition-all"><ArrowLeft /></button>
+                                    <button onClick={()=>setView('edit')} className="absolute top-4 right-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg font-bold text-sm transition-colors">編輯</button>
+                                </div>
+                                <div className="p-6 md:p-8 flex-1 overflow-y-auto modal-scroll">
+                                    <h1 className="text-2xl md:text-3xl font-bold mb-2 text-gray-800">{currentProduct.name}</h1>
+                                    <div className="flex gap-2 text-gray-500 mb-6 items-center"><Barcode /> <span className="font-mono text-lg">{currentProduct.barcode}</span></div>
+                                    
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="space-y-6">
+                                            {currentProduct.description && (
+                                                <div className="bg-purple-50 p-4 rounded-xl">
+                                                    <h3 className="text-xs font-bold text-purple-600 uppercase mb-2">銷售文案</h3>
+                                                    <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{currentProduct.description}</div>
+                                                </div>
+                                            )}
+                                            <div className="bg-orange-50 p-4 rounded-xl">
+                                                <h3 className="text-xs font-bold text-orange-600 uppercase mb-3">銷售紀錄</h3>
+                                                <div className="flex justify-between font-bold text-orange-900 text-lg mb-1">
+                                                    <span>上次售價</span><span>${currentProduct.lastSoldPrice||0}</span>
+                                                </div>
+                                                {currentProduct.lastSoldNote && <div className="text-sm text-orange-700 mt-2 pt-2 border-t border-orange-200">{currentProduct.lastSoldNote}</div>}
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="space-y-4">
+                                            <h3 className="font-bold text-gray-700">平台價格</h3>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                {(currentProduct.platforms||[]).map((p,i)=> (
+                                                    <div key={i} className="bg-blue-50 p-3 rounded-xl text-center border border-blue-100">
+                                                        <div className="text-blue-600 font-bold text-sm mb-1">{p.name}</div>
+                                                        <div className="text-xl font-bold text-gray-800">${p.price}</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            
+                                            {currentProduct.customFields && currentProduct.customFields.length > 0 && (
+                                                <div className="mt-6 pt-6 border-t border-gray-100 space-y-2">
+                                                    <h3 className="font-bold text-gray-700 mb-3">其他資訊</h3>
+                                                    {currentProduct.customFields.map((f,i)=>(
+                                                        <div key={i} className="flex justify-between bg-gray-50 p-3 rounded-lg border border-gray-100">
+                                                            <span className="text-gray-500 text-sm">{f.label}</span>
+                                                            <span className="font-bold text-gray-800">{f.value}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
                            </div>
                         </div>
                     )}
 
-                    {/* Edit View Overlay */}
+                    {/* Edit View Overlay (Responsive Modal) */}
                     {view === 'edit' && currentProduct && (
-                        <div className="fixed inset-0 z-40 bg-gray-50 flex flex-col overflow-auto pb-20">
-                            <div className="bg-white p-4 shadow-sm sticky top-0 z-10 flex justify-between items-center">
-                                <button onClick={()=>setView('list')}><ArrowLeft className="text-gray-500"/></button><h1 className="font-bold">編輯商品</h1><button onClick={handleSave} disabled={loading} className="text-blue-600 font-bold">{loading?'儲存中':'完成'}</button>
-                            </div>
-                            <div className="p-4 space-y-6">
-                                <div className="flex flex-col items-center gap-2">
-                                    <div className="w-32 h-32 bg-gray-200 rounded-xl overflow-hidden relative border-2 border-dashed">{currentProduct.image ? <img src={currentProduct.image} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><Camera /></div>}<input type="file" accept="image/*" onChange={handleImg} className="absolute inset-0 opacity-0" /></div>
-                                    <button onClick={handleAIIdentify} disabled={aiLoading} className="text-xs bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full flex items-center gap-1"><Sparkles size={12}/> {aiLoading?'辨識中...':'AI 辨識名稱'}</button>
+                        <div className="fixed inset-0 z-40 bg-gray-50 flex flex-col justify-center items-center md:bg-black/60 md:backdrop-blur-sm p-0 md:p-6">
+                            <div className="w-full h-full md:w-full md:max-w-4xl md:h-[85vh] bg-white md:rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+                                <div className="bg-white p-4 shadow-sm sticky top-0 z-10 flex justify-between items-center border-b border-gray-100">
+                                    <button onClick={()=>setView('list')} className="p-2 hover:bg-gray-100 rounded-full"><ArrowLeft className="text-gray-500"/></button>
+                                    <h1 className="font-bold text-lg">編輯商品</h1>
+                                    <button onClick={handleSave} disabled={loading} className="text-blue-600 font-bold px-4 py-2 hover:bg-blue-50 rounded-lg transition-colors">{loading?'儲存中':'完成'}</button>
                                 </div>
-                                <div className="bg-white p-4 rounded-xl space-y-4">
-                                    <input value={currentProduct.name} onChange={e=>setCurrentProduct({...currentProduct, name:e.target.value})} className="w-full p-3 bg-gray-50 rounded-lg outline-none" placeholder="商品名稱" />
-                                    <div className="flex gap-2"><input value={currentProduct.barcode} onChange={e=>setCurrentProduct({...currentProduct, barcode:e.target.value})} className="flex-1 p-3 bg-gray-50 rounded-lg outline-none" /><button onClick={()=>{setScanCallback('edit');setView('scan')}} className="p-3 bg-gray-800 text-white rounded-lg"><Barcode/></button></div>
+                                <div className="p-4 md:p-8 space-y-6 overflow-y-auto modal-scroll bg-gray-50/50 flex-1">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                        {/* Left Column: Image & Basic Info */}
+                                        <div className="space-y-6">
+                                            <div className="flex flex-col items-center gap-3">
+                                                <div className="w-full aspect-square bg-gray-200 rounded-xl overflow-hidden relative border-2 border-dashed border-gray-300 group hover:border-blue-400 transition-colors">
+                                                    {currentProduct.image ? <img src={currentProduct.image} className="w-full h-full object-cover" /> : <div className="w-full h-full flex flex-col items-center justify-center text-gray-400"><Camera size={32}/><span className="text-xs mt-2">點擊上傳</span></div>}
+                                                    <input type="file" accept="image/*" onChange={handleImg} className="absolute inset-0 opacity-0 cursor-pointer" />
+                                                </div>
+                                                <button onClick={handleAIIdentify} disabled={aiLoading} className="w-full text-xs bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors font-bold"><Sparkles size={14}/> {aiLoading?'AI 辨識中...':'AI 辨識名稱'}</button>
+                                            </div>
+                                        </div>
+
+                                        {/* Right Column: Form Fields */}
+                                        <div className="md:col-span-2 space-y-6">
+                                            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 space-y-4">
+                                                <div className="space-y-1">
+                                                    <label className="text-xs font-bold text-gray-500 uppercase ml-1">商品名稱</label>
+                                                    <input value={currentProduct.name} onChange={e=>setCurrentProduct({...currentProduct, name:e.target.value})} className="w-full p-3 bg-gray-50 border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg outline-none transition-all" placeholder="輸入商品名稱" />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <label className="text-xs font-bold text-gray-500 uppercase ml-1">條碼 (Barcode)</label>
+                                                    <div className="flex gap-2">
+                                                        <input value={currentProduct.barcode} onChange={e=>setCurrentProduct({...currentProduct, barcode:e.target.value})} className="flex-1 p-3 bg-gray-50 border border-gray-200 focus:border-blue-500 rounded-lg outline-none" />
+                                                        <button onClick={()=>{setScanCallback('edit');setView('scan')}} className="p-3 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors"><Barcode/></button>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                                                <div className="flex justify-between mb-2 items-center">
+                                                    <label className="text-xs font-bold text-gray-500 uppercase">銷售文案</label>
+                                                    <button onClick={handleAIGenerateDesc} className="text-xs bg-purple-100 hover:bg-purple-200 text-purple-700 px-3 py-1 rounded-full flex gap-1 transition-colors"><Wand size={12}/> AI 生成</button>
+                                                </div>
+                                                <textarea value={currentProduct.description||''} onChange={e=>setCurrentProduct({...currentProduct, description:e.target.value})} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg h-24 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all resize-none" placeholder="輸入或生成銷售文案..." />
+                                            </div>
+
+                                            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 space-y-3">
+                                                <div className="flex justify-between items-center">
+                                                    <h3 className="font-bold text-gray-700">平台價格</h3>
+                                                    <button onClick={()=>setCurrentProduct({...currentProduct, platforms:[...currentProduct.platforms,{name:'',price:''}]})} className="text-blue-600 hover:bg-blue-50 p-1 rounded transition-colors"><Plus size={20}/></button>
+                                                </div>
+                                                {currentProduct.platforms.map((p,i)=>(
+                                                    <div key={i} className="flex gap-2 items-center">
+                                                        <input value={p.name} onChange={e=>{const n=[...currentProduct.platforms];n[i].name=e.target.value;setCurrentProduct({...currentProduct,platforms:n})}} className="flex-1 p-2 bg-gray-50 border border-gray-200 rounded focus:border-blue-500 outline-none" placeholder="平台名稱" />
+                                                        <input type="number" value={p.price} onChange={e=>{const n=[...currentProduct.platforms];n[i].price=e.target.value;setCurrentProduct({...currentProduct,platforms:n})}} className="w-24 p-2 bg-gray-50 border border-gray-200 rounded focus:border-blue-500 outline-none" placeholder="$" />
+                                                        <button onClick={()=>setCurrentProduct({...currentProduct,platforms:currentProduct.platforms.filter((_,idx)=>idx!==i)})} className="text-gray-400 hover:text-red-500 transition-colors"><X size={18}/></button>
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 space-y-3">
+                                                <label className="text-xs font-bold text-gray-500 uppercase">上次售出紀錄</label>
+                                                <div className="flex gap-2">
+                                                    <input type="number" value={currentProduct.lastSoldPrice} onChange={e=>setCurrentProduct({...currentProduct, lastSoldPrice:e.target.value})} className="flex-1 p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none" placeholder="售出價格 $" />
+                                                    <input value={currentProduct.lastSoldNote||''} onChange={e=>setCurrentProduct({...currentProduct, lastSoldNote:e.target.value})} className="flex-[2] p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none" placeholder="備註 (如: 熟客優惠)" />
+                                                </div>
+                                            </div>
+
+                                            {currentProduct.id && <button onClick={()=>handleDelete(currentProduct.id)} className="w-full py-3 text-red-600 font-bold bg-white border border-red-200 hover:bg-red-50 rounded-xl transition-colors">刪除此商品</button>}
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="bg-white p-4 rounded-xl">
-                                    <div className="flex justify-between mb-2"><label>文案</label><button onClick={handleAIGenerateDesc} className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded flex gap-1"><Wand size={12}/> AI 生成</button></div>
-                                    <textarea value={currentProduct.description||''} onChange={e=>setCurrentProduct({...currentProduct, description:e.target.value})} className="w-full p-3 bg-gray-50 rounded-lg h-24 outline-none" placeholder="銷售文案..." />
-                                </div>
-                                <div className="bg-white p-4 rounded-xl space-y-2">
-                                    <div className="flex justify-between"><h3 className="font-bold">平台價格</h3><button onClick={()=>setCurrentProduct({...currentProduct, platforms:[...currentProduct.platforms,{name:'',price:''}]})} className="text-blue-600 text-sm"><Plus size={16}/></button></div>
-                                    {currentProduct.platforms.map((p,i)=><div key={i} className="flex gap-2"><input value={p.name} onChange={e=>{const n=[...currentProduct.platforms];n[i].name=e.target.value;setCurrentProduct({...currentProduct,platforms:n})}} className="flex-1 p-2 bg-gray-50 rounded" placeholder="平台" /><input type="number" value={p.price} onChange={e=>{const n=[...currentProduct.platforms];n[i].price=e.target.value;setCurrentProduct({...currentProduct,platforms:n})}} className="w-24 p-2 bg-gray-50 rounded" placeholder="$" /><button onClick={()=>setCurrentProduct({...currentProduct,platforms:currentProduct.platforms.filter((_,idx)=>idx!==i)})} className="text-red-400"><X size={16}/></button></div>)}
-                                </div>
-                                <div className="bg-white p-4 rounded-xl space-y-2">
-                                    <label>上次售出</label><div className="flex gap-2"><input type="number" value={currentProduct.lastSoldPrice} onChange={e=>setCurrentProduct({...currentProduct, lastSoldPrice:e.target.value})} className="flex-1 p-3 bg-gray-50 rounded" placeholder="$" /><input value={currentProduct.lastSoldNote||''} onChange={e=>setCurrentProduct({...currentProduct, lastSoldNote:e.target.value})} className="flex-[2] p-3 bg-gray-50 rounded" placeholder="備註" /></div>
-                                </div>
-                                {currentProduct.id && <button onClick={()=>handleDelete(currentProduct.id)} className="w-full py-3 text-red-600 font-bold bg-white rounded-xl">刪除商品</button>}
                             </div>
                         </div>
                     )}
