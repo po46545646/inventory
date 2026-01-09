@@ -1,20 +1,19 @@
 <!-- 
     =======================================================
-    🚀 掌上庫存系統 v3.4 (雲端專用版 - 移除單機模式)
+    🚀 掌上庫存系統 v3.5 (正式發布版 - 無設定畫面)
     =======================================================
     
-    更新項目：
-    1. 移除 LocalDB (本地資料庫) 相關程式碼。
-    2. 移除 LoginScreen 的「單機試用」入口。
-    3. 強制要求 Firebase 設定，未設定前僅顯示設定引導畫面。
-    4. 簡化資料讀寫邏輯，僅保留 Firestore 路徑。
+    更動說明：
+    1. 移除所有「設定資料庫連線」的介面，使用者再也看不到 JSON 輸入框。
+    2. 啟動即連線：打開網頁直接顯示 Google 登入。
+    3. 開發者設定區：請在下方填入您的 Firebase Config。
 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>掌上庫存 (雲端專用版)</title>
+    <title>掌上庫存系統</title>
     
     <!-- React & ReactDOM -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -49,39 +48,41 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        // --- 設定與初始化邏輯 ---
+        // ==========================================
+        // ⚠️ 開發者請注意：請在此處填入您的設定 ⚠️
+        // ==========================================
         
-        let firebaseConfig = null;
-        let isCloudMode = false;
-        let initError = null;
+        // 1. Firebase 設定 (請從 Firebase Console > Project Settings 複製內容覆蓋下方物件)
+        const firebaseConfig = {
+            apiKey: "AIzaSyCNWEhdhzW77Nb-aixJpSXfS5bYhmDGhao",
+            authDomain: "my-shop-db-90cb9.firebaseapp.com",
+            projectId: "my-shop-db-90cb9",
+            storageBucket: "my-shop-db-90cb9.firebasestorage.app",
+            messagingSenderId: "226456664910",
+            appId: "1:226456664910:web:b5eae51dfeff46ef123c1f",
+            measurementId: "G-JF5GGXED97"
+        };
 
-        // 1. 優先讀取使用者手動輸入的設定 (localStorage)
-        try {
-            const userConfig = localStorage.getItem('inventory_firebase_config_obj');
-            if (userConfig) {
-                firebaseConfig = JSON.parse(userConfig);
-                isCloudMode = true;
-            } else if (typeof __firebase_config !== 'undefined') {
-                // 2. 其次讀取環境變數 (Canvas 環境)
-                firebaseConfig = JSON.parse(__firebase_config);
-                isCloudMode = true;
-            }
-        } catch (e) {
-            console.log("Config parse error", e);
-        }
+        // 2. 自動讀取環境變數 (Canvas 環境相容，您不需要動這行)
+        const activeConfig = (typeof __firebase_config !== 'undefined') ? JSON.parse(__firebase_config) : firebaseConfig;
+
+        // ==========================================
+        // 🚀 應用程式邏輯開始 (以下不需要修改)
+        // ==========================================
 
         // 初始化 Firebase
         let auth, db;
-        if (isCloudMode && firebaseConfig) {
-            try {
-                if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        let isConfigured = false;
+        
+        try {
+            if (activeConfig.apiKey && activeConfig.apiKey !== "請在此填入您的apiKey") {
+                if (!firebase.apps.length) firebase.initializeApp(activeConfig);
                 auth = firebase.auth();
                 db = firebase.firestore();
-            } catch (e) {
-                console.error("Firebase init failed:", e);
-                initError = "連線設定無效，請重新設定";
-                isCloudMode = false; 
+                isConfigured = true;
             }
+        } catch (e) {
+            console.error("Firebase init failed:", e);
         }
 
         // --- Icons ---
@@ -93,21 +94,18 @@
             ArrowLeft: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>),
             ImageIcon: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>),
             X: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>),
-            RefreshCw: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>),
             AlertCircle: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>),
-            Sparkles: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L12 3Z"/></svg>),
+            Sparkles: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>),
             Wand: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8 19 13"/><path d="M15 9h0"/><path d="M17.8 6.2 19 5"/><path d="m3 21 9-9"/><path d="M12.2 6.2 11 5"/></svg>),
             Download: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>),
             LogOut: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>),
             User: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>),
             Settings: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.35a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>),
             Users: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>),
-            CloudOff: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="1" y1="1" x2="23" y2="23"/><path d="M22.61 16.95A5 5 0 0 0 18 10h-1.26a8 8 0 0 0-7.05-6M5 5a8 8 0 0 0 4 7h1.8"/><path d="M5 15a5 5 0 0 0 7 7h1a5 5 0 0 0 2.6-.73"/></svg>),
             Key: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg>),
-            Database: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>),
             GoogleLogo: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>)
         };
-        const { Camera, Barcode, Plus, Search, ArrowLeft, ImageIcon, X, RefreshCw, AlertCircle, Sparkles, Wand, Download, LogOut, User, Settings, Users, CloudOff, Key, Database, GoogleLogo } = Icons;
+        const { Camera, Barcode, Plus, Search, ArrowLeft, ImageIcon, X, RefreshCw, AlertCircle, Sparkles, Wand, Download, LogOut, User, Settings, Users, Key, GoogleLogo } = Icons;
 
         // --- Utils & AI ---
         const callGemini = async (prompt, imageBase64 = null, apiKey = null) => {
@@ -206,62 +204,26 @@
             </div>
         );
 
-        // --- Config Modal ---
-        const ConfigModal = ({ onClose, onSave }) => {
-            const [configStr, setConfigStr] = React.useState('');
-            return (
-                <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-                    <div className="bg-white w-full max-w-lg rounded-2xl p-6 shadow-2xl">
-                        <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><Database className="text-blue-600"/> 設定雲端連線</h2>
-                        <p className="text-sm text-gray-600 mb-4">請貼上 Firebase Config JSON 以啟用多人同步功能：</p>
-                        <textarea 
-                            className="w-full h-40 p-3 bg-gray-50 border rounded-lg text-xs font-mono mb-4 focus:ring-2 focus:ring-blue-500 outline-none"
-                            placeholder='{ "apiKey": "...", "authDomain": "...", ... }'
-                            value={configStr}
-                            onChange={e => setConfigStr(e.target.value)}
-                        />
-                        <div className="flex gap-2">
-                            <button onClick={onClose} className="flex-1 py-3 text-gray-500 font-bold">取消</button>
-                            <button onClick={() => onSave(configStr)} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold shadow">儲存並連線</button>
-                        </div>
-                        <div className="mt-4 text-xs text-gray-400 bg-gray-100 p-2 rounded">
-                            提示：請至 Firebase Console > Project Settings > General > Your apps 複製 SDK setup and configuration。
-                        </div>
-                    </div>
-                </div>
-            );
-        };
-
-        const LoginScreen = ({ onLogin, onRegister, onGoogleLogin, isLocal, onSetupCloud }) => {
+        const LoginScreen = ({ onLogin, onRegister, onGoogleLogin }) => {
             const [email, setEmail] = React.useState('');
             const [password, setPassword] = React.useState('');
             const [loading, setLoading] = React.useState(false);
             const [mode, setMode] = React.useState('login');
 
-            // 如果未設定 Firebase，顯示強制設定畫面
-            if (isLocal) {
+            // 如果 Firebase 未設定 (開發者尚未填寫 firebaseConfig)
+            if (!isConfigured) {
                 return (
-                    <div className="min-h-screen bg-gradient-to-br from-gray-100 to-gray-200 flex flex-col justify-center items-center p-6 text-gray-800">
-                        <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 text-center">
-                            <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                                <CloudOff size={40} className="text-blue-500" />
-                            </div>
-                            <h2 className="text-2xl font-bold mb-2">尚未連接雲端資料庫</h2>
-                            <p className="text-gray-500 mb-8 text-sm leading-relaxed">
-                                本系統為雲端專用版本。<br/>請先設定 Firebase 連線，即可使用 Google 帳號登入並同步資料。
-                            </p>
-                            <button 
-                                onClick={onSetupCloud} 
-                                className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold shadow-lg hover:bg-blue-700 transition-all active:scale-95 flex items-center justify-center gap-2"
-                            >
-                                <Settings size={20}/> 立即設定連線
-                            </button>
+                    <div className="min-h-screen bg-gray-100 flex flex-col justify-center items-center p-6 text-center">
+                        <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full">
+                            <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4"><Settings size={32}/></div>
+                            <h2 className="text-xl font-bold text-gray-800 mb-2">開發者設定未完成</h2>
+                            <p className="text-gray-600 mb-6 text-sm">請編輯此 HTML 檔案，並在最上方的 <code className="bg-gray-100 px-2 py-1 rounded text-red-500 font-mono">firebaseConfig</code> 變數中填入您的 Firebase 專案設定。</p>
+                            <div className="text-xs text-gray-400 border-t pt-4">此畫面僅在您填寫設定前顯示，填寫後將自動消失。</div>
                         </div>
                     </div>
                 );
             }
 
-            // 正常雲端登入畫面
             const handleSubmit = async (e) => {
                 e.preventDefault();
                 setLoading(true);
@@ -318,7 +280,7 @@
             );
         };
 
-        const SettingsView = ({ companyId, setCompanyId, onClose, userEmail, apiKey, setApiKey, onResetCloud }) => {
+        const SettingsView = ({ companyId, setCompanyId, onClose, userEmail, apiKey, setApiKey }) => {
             const [tempId, setTempId] = React.useState(companyId || '');
             const [tempKey, setTempKey] = React.useState(apiKey || '');
 
@@ -346,11 +308,6 @@
                             <label className="block text-sm font-medium text-gray-700 mb-1">API Key</label>
                             <input type="password" value={tempKey} onChange={(e) => setTempKey(e.target.value)} placeholder="AIzaSy..." className="w-full p-3 bg-gray-50 rounded-lg border outline-none" />
                         </div>
-                        
-                        <div className="bg-white p-4 rounded-xl shadow-sm border border-red-100">
-                            <h2 className="text-sm font-bold text-red-600 uppercase mb-4 flex items-center gap-2"><Database size={16} /> 資料庫連線重置</h2>
-                            <button onClick={onResetCloud} className="text-sm text-red-500 underline">清除 Firebase 設定並登出</button>
-                        </div>
 
                         <button onClick={() => { setCompanyId(tempId.trim()); setApiKey(tempKey.trim()); onClose(); }} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg mt-4">儲存設定</button>
                     </div>
@@ -370,7 +327,6 @@
             const [toast, setToast] = React.useState(null);
             const [companyId, setCompanyIdState] = React.useState(() => localStorage.getItem('inventory_company_id') || '');
             const [apiKey, setApiKeyState] = React.useState(() => localStorage.getItem('inventory_api_key') || '');
-            const [showConfigModal, setShowConfigModal] = React.useState(false);
 
             const setCompanyId = (id) => {
                 setCompanyIdState(id);
@@ -387,7 +343,7 @@
 
             // Auth Initialization
             React.useEffect(() => {
-                if (isCloudMode) {
+                if (isConfigured) {
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                         auth.signInWithCustomToken(__initial_auth_token).catch(e => console.error(e));
                     }
@@ -397,35 +353,33 @@
 
             // Data Fetching
             React.useEffect(() => {
-                if (!user) { setProducts([]); return; }
+                if (!user || !isConfigured) { setProducts([]); return; }
 
-                if (isCloudMode) {
-                    const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app';
-                    let q;
-                    if (companyId) {
-                        q = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory').where('companyId', '==', companyId);
-                    } else {
-                        q = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products').orderBy('timestamp', 'desc');
-                    }
-                    const unsubscribe = q.onSnapshot((snapshot) => {
-                        let items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                        if (companyId) items.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
-                        setProducts(items);
-                    }, (error) => showToast("讀取失敗 (請檢查權限)", "error"));
-                    return () => unsubscribe();
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app';
+                let q;
+                if (companyId) {
+                    q = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory').where('companyId', '==', companyId);
+                } else {
+                    q = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products').orderBy('timestamp', 'desc');
                 }
+                const unsubscribe = q.onSnapshot((snapshot) => {
+                    let items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    if (companyId) items.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
+                    setProducts(items);
+                }, (error) => showToast("讀取失敗 (請檢查權限)", "error"));
+                return () => unsubscribe();
             }, [user, companyId, view]); 
 
             // Handlers
             const handleLogin = async (email, password) => {
-                if (isCloudMode) {
+                if (isConfigured) {
                     try { await auth.signInWithEmailAndPassword(email, password); showToast("登入成功！"); }
                     catch (e) { showToast("登入失敗: " + e.message, "error"); }
                 }
             };
 
             const handleGoogleLogin = async () => {
-                if (!isCloudMode) return;
+                if (!isConfigured) return;
                 const provider = new firebase.auth.GoogleAuthProvider();
                 try {
                     await auth.signInWithPopup(provider);
@@ -446,27 +400,9 @@
 
             const handleLogout = async () => {
                 if(confirm("確定要登出嗎？")) {
-                    if (isCloudMode) await auth.signOut();
+                    if (isConfigured) await auth.signOut();
                     setUser(null);
                     showToast("已登出");
-                }
-            };
-
-            const handleConfigSave = (configStr) => {
-                try {
-                    const config = JSON.parse(configStr);
-                    localStorage.setItem('inventory_firebase_config_obj', JSON.stringify(config));
-                    alert("設定已儲存！網頁將重新整理以啟用連線。");
-                    window.location.reload();
-                } catch (e) {
-                    alert("JSON 格式錯誤，請檢查複製的內容是否完整。");
-                }
-            };
-
-            const handleResetCloud = () => {
-                if(confirm("確定要清除連線設定並回復單機模式嗎？")) {
-                    localStorage.removeItem('inventory_firebase_config_obj');
-                    window.location.reload();
                 }
             };
 
@@ -515,23 +451,19 @@
                 if (!currentProduct.name) return showToast("請輸入名稱", "error");
                 setLoading(true);
                 try {
-                    // 優先使用 Google 帳號的 displayName，沒有才用 email
                     const editorName = user.displayName || user.email || 'user_' + user.uid.slice(0,5);
                     const data = { ...currentProduct, lastEditor: editorName };
                     
-                    if (isCloudMode) {
-                        const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app';
-                        let ref = companyId 
-                            ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory')
-                            : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products');
-                        if (data.companyId === undefined && companyId) data.companyId = companyId;
-                        data.timestamp = firebase.firestore.FieldValue.serverTimestamp();
-                        if (currentProduct.id) await ref.doc(currentProduct.id).update(data);
-                        else await ref.add(data);
+                    const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app';
+                    let ref = companyId 
+                        ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory')
+                        : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products');
+                    if (data.companyId === undefined && companyId) data.companyId = companyId;
+                    data.timestamp = firebase.firestore.FieldValue.serverTimestamp();
+                    if (currentProduct.id) await ref.doc(currentProduct.id).update(data);
+                    else await ref.add(data);
 
-                        // 明確的雲端儲存成功提示
-                        showToast(companyId ? "已同步至團隊雲端 ☁️" : "已同步至個人雲端 ☁️", "success");
-                    }
+                    showToast(companyId ? "已同步至團隊雲端 ☁️" : "已同步至個人雲端 ☁️", "success");
                     
                     setView('list');
                     setCurrentProduct(null);
@@ -542,14 +474,12 @@
             const handleDelete = async (id) => {
                 if (!confirm("確定刪除？")) return;
                 try {
-                    if (isCloudMode) {
-                        const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app';
-                        let ref = companyId 
-                                ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory')
-                                : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products');
-                        await ref.doc(id).delete();
-                        showToast("已從雲端刪除");
-                    }
+                    const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app';
+                    let ref = companyId 
+                            ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory')
+                            : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products');
+                    await ref.doc(id).delete();
+                    showToast("已從雲端刪除");
                     setView('list');
                 } catch(e) {
                     showToast("刪除失敗", "error");
@@ -575,15 +505,12 @@
                         onLogin={handleLogin} 
                         onRegister={handleRegister} 
                         onGoogleLogin={handleGoogleLogin}
-                        isLocal={!isCloudMode} 
-                        onSetupCloud={()=>setShowConfigModal(true)} 
                     />
-                    {showConfigModal && <ConfigModal onClose={()=>setShowConfigModal(false)} onSave={handleConfigSave} />}
                     {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
                 </>
             );
 
-            if (view === 'settings') return <SettingsView companyId={companyId} setCompanyId={setCompanyId} apiKey={apiKey} setApiKey={setApiKey} onClose={() => setView('list')} userEmail={user.email} onResetCloud={handleResetCloud} />;
+            if (view === 'settings') return <SettingsView companyId={companyId} setCompanyId={setCompanyId} apiKey={apiKey} setApiKey={setApiKey} onClose={() => setView('list')} userEmail={user.email} />;
             
             if (view === 'scan') return <><Scanner onScan={(code)=>{ setView('list'); if (scanCallback==='edit') { setCurrentProduct(p=>({...p, barcode:code})); setView('edit'); } else { const found = products.find(p=>p.barcode===code); if(found){ setCurrentProduct(found); setView('detail'); } else if(confirm('查無此商品，新增嗎？')) { setCurrentProduct({name:'', barcode:code, platforms:[{name:'蝦皮',price:''},{name:'FB',price:''},{name:'現場',price:''}], customFields:[]}); setView('edit'); } } setScanCallback(null); }} onClose={() => setView(scanCallback === 'edit' ? 'edit' : 'list')} />{toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}</>;
 
