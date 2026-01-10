@@ -1,15 +1,13 @@
 <!-- 
     =======================================================
-    🚀 掌上庫存系統 v3.17 (庫存管理 & 匯出增強版)
+    🚀 掌上庫存系統 v3.18 (Excel 欄位優化版)
     =======================================================
     
     更新說明：
-    1. 📦 新增「庫存數量 (Stock)」欄位：
-       - 編輯頁面可輸入數量。
-       - 列表頁面顯示庫存狀態 (綠色=有貨, 紅色=缺貨)。
-    2. 📊 恢復「匯出 CSV」功能：
-       - 點擊下載按鈕可匯出完整報表，支援 Excel 開啟 (UTF-8 BOM)。
-       - 匯出欄位包含：名稱、條碼、分類、庫存、售價、文案等。
+    1. 📊 強化「匯出 Excel」功能：
+       - 解決「擠在一起」的問題。
+       - 自動將不同平台 (如: 蝦皮、FB、現場) 的價格**拆分成獨立欄位**。
+       - 讓 Excel 表格更整齊，方便進行加總或篩選分析。
 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
@@ -370,23 +368,47 @@
             const handleRenameCategory = async (oldName, newName) => { if (!newName || newName === oldName) return; if (!confirm(`確定要將「${oldName}」全部改名為「${newName}」嗎？`)) return; if (manualCats.includes(oldName)) { const updated = manualCats.map(c => c === oldName ? newName : c); setManualCats(updated); localStorage.setItem('inventory_custom_cats', JSON.stringify(updated)); } const affectedProducts = products.filter(p => p.category === oldName); if (affectedProducts.length > 0) { setLoading(true); try { if (isConfigured && !isDemoMode) { const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app'; let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products'); const batch = db.batch(); affectedProducts.forEach(p => { batch.update(ref.doc(p.id), { category: newName }); }); await batch.commit(); } else { const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`; affectedProducts.forEach(p => { LocalDB.update(collection, p.id, { ...p, category: newName }); }); setProducts(LocalDB.getAll(collection)); } showToast(`已更新 ${affectedProducts.length} 個商品的分類`, "success"); } catch(e) { showToast("更新失敗", "error"); } setLoading(false); } };
             const handleDeleteCategory = async (catName) => { if (!confirm(`確定要刪除「${catName}」分類嗎？`)) return; if (manualCats.includes(catName)) { const updated = manualCats.filter(c => c !== catName); setManualCats(updated); localStorage.setItem('inventory_custom_cats', JSON.stringify(updated)); } const affectedProducts = products.filter(p => p.category === catName); if (affectedProducts.length > 0) { setLoading(true); try { if (isConfigured && !isDemoMode) { const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app'; let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products'); const batch = db.batch(); affectedProducts.forEach(p => { batch.update(ref.doc(p.id), { category: '' }); }); await batch.commit(); } else { const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`; affectedProducts.forEach(p => { LocalDB.update(collection, p.id, { ...p, category: '' }); }); setProducts(LocalDB.getAll(collection)); } showToast(`已移除分類連結`, "success"); } catch(e) { showToast("刪除失敗", "error"); } setLoading(false); } else { showToast("已刪除分類標籤", "success"); } };
 
-            // Export CSV Logic (Updated: Remove AI/Desc, Add Platform/History)
+            // Export CSV Logic (New Logic: Separate Columns)
             const handleExportCSV = () => {
                 if (products.length === 0) return showToast("沒有資料可匯出", "error");
-                
-                // 定義標題：移除文案/AI，加入平台價格、日期、歷史紀錄
-                const headers = ["商品名稱", "條碼", "分類", "庫存", "各平台價格", "最新成交日期", "最新成交價", "歷史成交紀錄"];
-                
+
+                // 1. 蒐集所有出現過的平台名稱 (例如: 蝦皮, FB, 現場)
+                const allPlatformNames = new Set();
+                products.forEach(p => {
+                    if (p.platforms) {
+                        p.platforms.forEach(pl => {
+                            if (pl.name) allPlatformNames.add(pl.name);
+                        });
+                    }
+                });
+                // 排序平台名稱，確保欄位順序固定
+                const platformHeaders = Array.from(allPlatformNames).sort();
+
+                // 2. 定義標題：加入動態平台欄位
+                const headers = [
+                    "商品名稱", 
+                    "條碼", 
+                    "分類", 
+                    "庫存", 
+                    ...platformHeaders.map(name => `價格(${name})`), // 動態加入平台欄位
+                    "最新成交日期", 
+                    "最新成交價", 
+                    "歷史成交紀錄 (完整)"
+                ];
+
                 const rows = products.map(p => {
-                    // 處理平台價格字串 (例如: 蝦皮: $100 | FB: $90)
-                    const platformStr = (p.platforms || []).map(pl => `${pl.name}: $${pl.price}`).join(" | ");
-                    
+                    // 處理動態平台價格：檢查該商品是否有對應平台的價格
+                    const platformPrices = platformHeaders.map(headerName => {
+                        const found = (p.platforms || []).find(pl => pl.name === headerName);
+                        return found ? found.price : ""; // 有則填價格，無則留空
+                    });
+
                     // 處理銷售紀錄
                     const hasHistory = p.salesHistory && p.salesHistory.length > 0;
                     const latestDate = hasHistory ? p.salesHistory[0].date : "-";
                     const latestPrice = hasHistory ? p.salesHistory[0].price : (p.lastSoldPrice || 0);
                     
-                    // 完整歷史字串
+                    // 完整歷史字串 (將換行符號取代為空格，避免 CSV 格式錯亂)
                     const historyStr = (p.salesHistory || []).map(h => `${h.date}: $${h.price}${h.note ? '('+h.note+')' : ''}`).join(" | ");
 
                     return [
@@ -394,13 +416,13 @@
                         `"${(p.barcode || '')}"`,
                         `"${(p.category || '')}"`,
                         p.stock || 0,
-                        `"${platformStr.replace(/"/g, '""')}"`,
+                        ...platformPrices, // 展開平台價格到各個欄位
                         `"${latestDate}"`,
                         latestPrice,
                         `"${historyStr.replace(/"/g, '""')}"`
                     ].join(",");
                 });
-                
+
                 const csvContent = "\uFEFF" + [headers.join(","), ...rows].join("\n");
                 const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
                 const url = URL.createObjectURL(blob);
