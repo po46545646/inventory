@@ -1,14 +1,16 @@
 <!-- 
     =======================================================
-    🚀 掌上庫存系統 v3.18.2 (純文字格式優化版)
+    🚀 掌上庫存系統 v3.18.5 (分類選單優化版)
     =======================================================
     
     更新說明：
-    1. ↩️ 移除圖片匯出功能：應要求移除圖片欄位，避免顯示問題。
-    2. ✨ 保留格式優化：
-       - 繼續使用 .xls 格式，確保表格排版整齊。
-       - 條碼欄位強制為文字格式，解決科學記號 (4.71E+12) 問題。
-       - 各平台價格依然自動獨立分欄。
+    1. 🔽 介面升級：
+       - 將原本的「橫向捲動分類按鈕」改為「下拉選單 (Dropdown)」。
+       - 解決分類過多時畫面雜亂的問題，保持介面清爽。
+       - 下拉選單內依然會顯示各分類的商品數量，例如：食品 (12)。
+    2. 🎨 視覺優化：
+       - 下拉選單採用與搜尋框一致的半透明深藍色風格。
+       - 優化「管理分類」按鈕的樣式與高度，使其與選單對齊。
 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
@@ -52,6 +54,8 @@
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.0/dist/JsBarcode.all.min.js"></script>
     <!-- Markdown Parser for AI responses -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- SheetJS for proper Excel export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
@@ -366,14 +370,59 @@
             const handleDelete = async (id) => { if (!confirm("確定刪除？")) return; try { if (isConfigured && !isDemoMode) { const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app'; let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products'); await ref.doc(id).delete(); } else { const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`; LocalDB.delete(collection, id); setProducts(LocalDB.getAll(collection)); } showToast("已刪除"); setView('list'); } catch(e) { showToast("刪除失敗", "error"); } };
             
             const handleAddManualCategory = (newCat) => { const updated = [...manualCats, newCat]; setManualCats(updated); localStorage.setItem('inventory_custom_cats', JSON.stringify(updated)); showToast(`已新增分類：${newCat}`, "success"); };
-            const handleRenameCategory = async (oldName, newName) => { if (!newName || newName === oldName) return; if (!confirm(`確定要將「${oldName}」全部改名為「${newName}」嗎？`)) return; if (manualCats.includes(oldName)) { const updated = manualCats.map(c => c === oldName ? newName : c); setManualCats(updated); localStorage.setItem('inventory_custom_cats', JSON.stringify(updated)); } const affectedProducts = products.filter(p => p.category === oldName); if (affectedProducts.length > 0) { setLoading(true); try { if (isConfigured && !isDemoMode) { const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app'; let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products'); const batch = db.batch(); affectedProducts.forEach(p => { batch.update(ref.doc(p.id), { category: newName }); }); await batch.commit(); } else { const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`; affectedProducts.forEach(p => { LocalDB.update(collection, p.id, { ...p, category: newName }); }); setProducts(LocalDB.getAll(collection)); } showToast(`已更新 ${affectedProducts.length} 個商品的分類`, "success"); } catch(e) { showToast("更新失敗", "error"); } setLoading(false); } };
+            const handleRenameCategory = async (oldName, newName) => { 
+                if (!newName || newName === oldName) return; 
+                
+                // Check merge
+                const isMerge = categories.includes(newName);
+                if (!confirm(isMerge ? `分類「${newName}」已存在。\n確定要將「${oldName}」合併至「${newName}」嗎？\n(所有「${oldName}」的商品將移至「${newName}」)` : `確定要將「${oldName}」改名為「${newName}」嗎？`)) return; 
+
+                // Update Manual Cats
+                if (manualCats.includes(oldName)) { 
+                    let updated = manualCats.filter(c => c !== oldName);
+                    if (!updated.includes(newName)) updated.push(newName);
+                    
+                    setManualCats(updated); 
+                    localStorage.setItem('inventory_custom_cats', JSON.stringify(updated)); 
+                } 
+                
+                // Update Products
+                const affectedProducts = products.filter(p => p.category === oldName); 
+                if (affectedProducts.length > 0) { 
+                    setLoading(true); 
+                    try { 
+                        if (isConfigured && !isDemoMode) { 
+                            const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app'; 
+                            let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products'); 
+                            const batch = db.batch(); 
+                            affectedProducts.forEach(p => { 
+                                batch.update(ref.doc(p.id), { category: newName }); 
+                            }); 
+                            await batch.commit(); 
+                        } else { 
+                            const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`; 
+                            affectedProducts.forEach(p => { 
+                                LocalDB.update(collection, p.id, { ...p, category: newName }); 
+                            }); 
+                            setProducts(LocalDB.getAll(collection)); 
+                        } 
+                        showToast(`已將 ${affectedProducts.length} 個商品移至「${newName}」`, "success"); 
+                    } catch(e) { 
+                        showToast("更新失敗", "error"); 
+                    } 
+                    setLoading(false); 
+                } else {
+                    showToast("分類名稱已更新", "success");
+                }
+            };
+            
             const handleDeleteCategory = async (catName) => { if (!confirm(`確定要刪除「${catName}」分類嗎？`)) return; if (manualCats.includes(catName)) { const updated = manualCats.filter(c => c !== catName); setManualCats(updated); localStorage.setItem('inventory_custom_cats', JSON.stringify(updated)); } const affectedProducts = products.filter(p => p.category === catName); if (affectedProducts.length > 0) { setLoading(true); try { if (isConfigured && !isDemoMode) { const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app'; let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products'); const batch = db.batch(); affectedProducts.forEach(p => { batch.update(ref.doc(p.id), { category: '' }); }); await batch.commit(); } else { const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`; affectedProducts.forEach(p => { LocalDB.update(collection, p.id, { ...p, category: '' }); }); setProducts(LocalDB.getAll(collection)); } showToast(`已移除分類連結`, "success"); } catch(e) { showToast("刪除失敗", "error"); } setLoading(false); } else { showToast("已刪除分類標籤", "success"); } };
 
-            // Export Excel Logic (New Logic: HTML to XLS with Images)
+            // Export Excel Logic (New Logic: Proper .xlsx using SheetJS)
             const handleExportExcel = () => {
                 if (products.length === 0) return showToast("沒有資料可匯出", "error");
 
-                // 1. 蒐集所有出現過的平台名稱
+                // 1. Collect all platform names
                 const allPlatformNames = new Set();
                 products.forEach(p => {
                     if (p.platforms) {
@@ -384,50 +433,20 @@
                 });
                 const platformHeaders = Array.from(allPlatformNames).sort();
 
-                // 2. 建構 HTML 表格
-                let tableHTML = `
-                <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-                <head>
-                <meta http-equiv="content-type" content="application/vnd.ms-excel; charset=UTF-8">
-                <!--[if gte mso 9]>
-                <xml>
-                <x:ExcelWorkbook>
-                <x:ExcelWorksheets>
-                <x:ExcelWorksheet>
-                <x:Name>庫存清單</x:Name>
-                <x:WorksheetOptions>
-                <x:DisplayGridlines/>
-                </x:WorksheetOptions>
-                </x:ExcelWorksheet>
-                </x:ExcelWorksheets>
-                </x:ExcelWorkbook>
-                </xml>
-                <![endif]-->
-                <style>
-                    table { border-collapse: collapse; width: 100%; }
-                    th, td { border: 1px solid #000000; padding: 8px; text-align: center; vertical-align: middle; height: 60px; }
-                    th { background-color: #f0f0f0; font-weight: bold; }
-                    .text-cell { mso-number-format:"\\@"; } /* 強制文字格式 */
-                </style>
-                </head>
-                <body>
-                <table>
-                <thead>
-                    <tr>
-                        <th>商品名稱</th>
-                        <th>條碼 (Barcode)</th>
-                        <th>分類</th>
-                        <th>庫存</th>
-                        ${platformHeaders.map(name => `<th>價格 (${name})</th>`).join('')}
-                        <th>最新成交日期</th>
-                        <th>最新成交價</th>
-                        <th>歷史成交紀錄 (完整)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                `;
+                // 2. Prepare Data for SheetJS
+                // Headers
+                const headers = [
+                    "商品名稱", 
+                    "條碼 (Barcode)", 
+                    "分類", 
+                    "庫存", 
+                    ...platformHeaders.map(p => `價格 (${p})`), 
+                    "最新成交日期", 
+                    "最新成交價", 
+                    "歷史成交紀錄"
+                ];
 
-                products.forEach(p => {
+                const data = products.map(p => {
                     const platformPrices = platformHeaders.map(headerName => {
                         const found = (p.platforms || []).find(pl => pl.name === headerName);
                         return found ? found.price : ""; 
@@ -438,37 +457,32 @@
                     const latestPrice = hasHistory ? p.salesHistory[0].price : (p.lastSoldPrice || 0);
                     const historyStr = (p.salesHistory || []).map(h => `${h.date}: $${h.price}${h.note ? '('+h.note+')' : ''}`).join(" | ");
 
-                    tableHTML += `
-                    <tr>
-                        <td class="text-cell">${(p.name || '')}</td>
-                        <td class="text-cell">${(p.barcode || '')}</td>
-                        <td class="text-cell">${(p.category || '')}</td>
-                        <td>${p.stock || 0}</td>
-                        ${platformPrices.map(price => `<td>${price}</td>`).join('')}
-                        <td class="text-cell">${latestDate}</td>
-                        <td>${latestPrice}</td>
-                        <td>${historyStr}</td>
-                    </tr>
-                    `;
+                    return [
+                        p.name,
+                        p.barcode,
+                        p.category,
+                        p.stock,
+                        ...platformPrices,
+                        latestDate,
+                        latestPrice,
+                        historyStr
+                    ];
                 });
 
-                tableHTML += `
-                </tbody>
-                </table>
-                </body>
-                </html>
-                `;
+                // Combine headers and data
+                const wsData = [headers, ...data];
 
-                // 3. 下載檔案
-                const blob = new Blob([tableHTML], { type: "application/vnd.ms-excel" });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement("a");
-                link.href = url;
-                link.download = `inventory_export_${new Date().toISOString().slice(0,10)}.xls`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                showToast("匯出 Excel (優化版) 成功！", "success");
+                // 3. Create Worksheet
+                const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+                // 4. Create Workbook and Append Worksheet
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "庫存清單");
+
+                // 5. Generate and Download
+                XLSX.writeFile(wb, `inventory_export_${new Date().toISOString().slice(0,10)}.xlsx`);
+                
+                showToast("匯出 Excel (.xlsx) 成功！", "success");
             };
 
             const filteredProducts = products.filter(p => {
@@ -489,7 +503,7 @@
                                 <h1 className="text-2xl font-bold flex items-center gap-2">庫存 {companyId && <span className="text-xs bg-blue-800 dark:bg-slate-700 px-2 py-1 rounded ml-2 hidden md:inline-block">{companyId}</span>}</h1>
                                 {companyId && <span className="text-xs bg-blue-800 dark:bg-slate-700 px-2 py-1 rounded ml-2 md:hidden">{companyId}</span>}
                                 <div className="flex gap-2">
-                                    <button onClick={handleExportExcel} className="p-2 hover:bg-blue-700 dark:hover:bg-slate-600 rounded-full transition-colors flex items-center gap-1" title="匯出 Excel (優化版)">
+                                    <button onClick={handleExportExcel} className="p-2 hover:bg-blue-700 dark:hover:bg-slate-600 rounded-full transition-colors flex items-center gap-1" title="匯出正規 Excel (.xlsx)">
                                         <Download size={24} /> <span className="text-xs font-bold hidden md:inline">匯出Excel</span>
                                     </button>
                                     <button onClick={() => setView('settings')} className="p-2 hover:bg-blue-700 dark:hover:bg-slate-600 rounded-full transition-colors"><Settings size={24} /></button>
@@ -501,17 +515,29 @@
                                 <div className="bg-blue-500 hover:bg-blue-400 dark:bg-slate-600 dark:hover:bg-slate-500 p-3 rounded-xl cursor-pointer transition-colors" onClick={() => { setScanCallback('search'); setView('scan'); }}><Barcode className="text-white" size={24} /></div>
                             </div>
                             <div className="flex gap-2 items-center">
-                                <div className="flex-1 overflow-x-auto pb-2 no-scrollbar flex gap-2">
-                                    {categories.map(cat => {
-                                        const count = products.filter(p => (p.category || '未分類') === (cat === '全部' ? (p.category || '未分類') : cat)).length;
-                                        return (
-                                            <button key={cat} onClick={() => setSelectedCategory(cat)} className={`px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap transition-all flex items-center gap-1 ${selectedCategory === cat ? 'bg-white text-blue-600 shadow-md' : 'bg-blue-700/50 text-blue-100 hover:bg-blue-700 dark:bg-slate-700 dark:text-slate-300'}`}>
-                                                {cat} {cat !== '全部' && <span className="text-[10px] opacity-70 ml-1">({count})</span>}
-                                            </button>
-                                        );
-                                    })}
+                                <div className="relative flex-1">
+                                    <select 
+                                        value={selectedCategory} 
+                                        onChange={(e) => setSelectedCategory(e.target.value)}
+                                        className="w-full appearance-none bg-blue-700/50 hover:bg-blue-700 dark:bg-slate-700 text-white border-0 rounded-xl py-3 pl-4 pr-10 font-bold outline-none focus:ring-2 focus:ring-white/30 transition-colors cursor-pointer"
+                                    >
+                                        {categories.map(cat => {
+                                            const count = products.filter(p => (p.category || '未分類') === (cat === '全部' ? (p.category || '未分類') : cat)).length;
+                                            return (
+                                                <option key={cat} value={cat} className="text-gray-900 bg-white">
+                                                    {cat} {cat !== '全部' ? `(${count})` : ''}
+                                                </option>
+                                            );
+                                        })}
+                                    </select>
+                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-blue-200">
+                                        <svg className="fill-current h-5 w-5" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+                                    </div>
                                 </div>
-                                <button onClick={() => setShowCatManager(true)} className="p-2 bg-blue-700/50 hover:bg-blue-700 dark:bg-slate-700 rounded-full text-white mb-2 shadow-sm"><Edit2 size={16}/></button>
+                                <button onClick={() => setShowCatManager(true)} className="p-3 bg-blue-700/50 hover:bg-blue-700 dark:bg-slate-700 rounded-xl text-white shadow-sm flex items-center gap-1 transition-colors whitespace-nowrap">
+                                    <Edit2 size={18}/>
+                                    <span className="text-sm font-bold hidden md:inline">管理分類</span>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -614,9 +640,12 @@
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div className="space-y-1">
                                                         <label className="text-xs font-bold text-gray-500 dark:text-slate-400 uppercase ml-1">分類 (Category)</label>
-                                                        <div className="relative">
-                                                            <Tag className="absolute left-3 top-3 text-gray-400" size={18}/>
-                                                            <input value={currentProduct.category || ''} onChange={e => setCurrentProduct({...currentProduct, category: e.target.value})} className="w-full pl-10 p-3 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 dark:text-white focus:border-blue-500 rounded-lg outline-none" placeholder="分類" />
+                                                        <div className="flex gap-2">
+                                                            <div className="relative flex-1">
+                                                                <Tag className="absolute left-3 top-3 text-gray-400" size={18}/>
+                                                                <input value={currentProduct.category || ''} onChange={e => setCurrentProduct({...currentProduct, category: e.target.value})} className="w-full pl-10 p-3 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 dark:text-white focus:border-blue-500 rounded-lg outline-none" placeholder="分類" />
+                                                            </div>
+                                                            <button onClick={() => setShowCatManager(true)} className="px-3 bg-gray-100 dark:bg-slate-600 rounded-lg text-gray-500 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-500 transition-colors" title="管理分類"><Settings size={20}/></button>
                                                         </div>
                                                     </div>
                                                     <div className="space-y-1">
