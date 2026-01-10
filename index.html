@@ -1,15 +1,15 @@
 <!-- 
     =======================================================
-    🚀 掌上庫存系統 v3.18.6 (資料搬移/改名功能版)
+    🚀 掌上庫存系統 v3.18.7 (直覺改名優化版)
     =======================================================
     
     更新說明：
-    1. 🚚 新增「資料搬移」功能 (Settings)：
-       - 解決使用者更換「公司代碼」時，舊資料無法帶走的問題。
-       - 在設定頁面新增專屬區塊，可將目前代碼下的所有商品，批量更新至新代碼。
-       - 支援 Firebase 雲端資料與 LocalDB 本地資料的搬移。
-    2. ⚙️ 設定頁面優化：
-       - 區分「切換代碼 (查看其他庫存)」與「搬移資料 (改名)」的操作，避免誤解。
+    1. ✏️ 直覺式改名 (Settings)：
+       - 恢復「公司代碼」欄位為可直接編輯。
+       - 移除複雜的「資料搬移」獨立區塊。
+       - 當您修改代碼並儲存時，系統會自動詢問：「您是要幫公司改名(帶走資料)，還是切換帳號？」，操作更符合直覺。
+    2. 🛠️ 核心功能保留：
+       - 保留 Excel 正規匯出 (.xlsx)、下拉選單分類、圖片壓縮等所有優化功能。
 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
@@ -308,37 +308,24 @@
             return <div className="min-h-screen bg-gradient-to-br from-blue-600 to-indigo-700 flex flex-col justify-center items-center p-6 text-white"><div className="w-full max-w-md bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-8 text-gray-800 dark:text-white"><div className="text-center mb-8"><h2 className="text-2xl font-bold">歡迎使用掌上庫存</h2></div><div className="mb-6 space-y-3"><button onClick={onGoogleLogin} className="w-full py-3 bg-white border border-gray-300 rounded-lg font-bold flex items-center justify-center gap-3 text-gray-700"><GoogleLogo size={20} /> 使用 Google 帳號登入</button><button onClick={onDemoLogin} className="w-full py-3 bg-gray-50 text-gray-500 rounded-lg font-bold flex items-center justify-center gap-2 text-sm">👀 訪客試用</button></div><form onSubmit={e=>{e.preventDefault();setLoading(true);(mode==='login'?onLogin:onRegister)(email,password).finally(()=>setLoading(false))}} className="space-y-4"><div><label className="block text-sm font-medium mb-1">Email</label><input type="text" value={email} onChange={e=>setEmail(e.target.value)} className="w-full p-3 bg-gray-50 border rounded-lg" required /></div><div><label className="block text-sm font-medium mb-1">密碼</label><input type="password" value={password} onChange={e=>setPassword(e.target.value)} className="w-full p-3 bg-gray-50 border rounded-lg" required minLength="6" /></div><button type="submit" disabled={loading} className="w-full py-3 text-white rounded-lg font-bold bg-blue-600 hover:bg-blue-700">{loading?'...':(mode==='login'?'登入':'註冊')}</button></form><div className="mt-6 text-center text-sm"><button onClick={()=>setMode(mode==='login'?'register':'login')} className="text-blue-600 font-bold hover:underline">{mode==='login'?'免費註冊':'直接登入'}</button></div></div></div>;
         };
 
-        const SettingsView = ({ companyId, setCompanyId, onClose, userEmail, apiKey, setApiKey, isDarkMode, toggleDarkMode, isDemoMode, onMigrate }) => {
+        const SettingsView = ({ companyId, setCompanyId, onClose, userEmail, apiKey, setApiKey, isDarkMode, toggleDarkMode, isDemoMode, onSaveSettings }) => {
             const [tempId, setTempId] = React.useState(companyId || '');
             const [tempKey, setTempKey] = React.useState(apiKey || '');
-            const [migrateTarget, setMigrateTarget] = React.useState('');
 
-            return <div className="min-h-screen bg-gray-100 dark:bg-slate-900 flex flex-col items-center"><div className="w-full max-w-2xl bg-white dark:bg-slate-800 min-h-screen shadow-2xl md:min-h-0 md:h-auto md:my-10 md:rounded-2xl overflow-hidden"><div className="bg-white dark:bg-slate-800 p-4 shadow-sm flex items-center gap-3 border-b dark:border-slate-700"><button onClick={onClose}><ArrowLeft/></button><h1 className="text-lg font-bold dark:text-white">設定</h1></div><div className="p-6 space-y-6"><div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border dark:border-slate-700 flex justify-between items-center"><h2 className="text-sm font-bold dark:text-slate-200 flex items-center gap-2"><Moon size={16}/> 夜間模式</h2><button onClick={toggleDarkMode} className={`w-12 h-6 rounded-full p-1 transition-colors ${isDarkMode?'bg-blue-600':'bg-gray-300'}`}><div className={`w-4 h-4 bg-white rounded-full transform transition-transform ${isDarkMode?'translate-x-6':'translate-x-0'}`}></div></button></div><div className="p-4 rounded-xl shadow-sm border dark:border-slate-700"><h2 className="text-sm font-bold mb-4 flex items-center gap-2 dark:text-white"><User size={16}/> 帳號</h2><div className="text-lg font-medium dark:text-white">{userEmail}</div></div><div className="p-4 rounded-xl shadow-sm border dark:border-slate-700"><h2 className="text-sm font-bold mb-4 flex items-center gap-2 text-blue-600"><Users size={16}/> 公司代碼 (切換查看)</h2><input value={tempId} onChange={e=>setTempId(e.target.value)} className="w-full p-3 bg-gray-50 dark:bg-slate-700 border rounded-lg dark:text-white" disabled={isDemoMode}/><div className="mt-2 text-xs text-gray-400">{tempId?`目前: ${tempId}`:'個人模式'}</div></div>
+            return <div className="min-h-screen bg-gray-100 dark:bg-slate-900 flex flex-col items-center"><div className="w-full max-w-2xl bg-white dark:bg-slate-800 min-h-screen shadow-2xl md:min-h-0 md:h-auto md:my-10 md:rounded-2xl overflow-hidden"><div className="bg-white dark:bg-slate-800 p-4 shadow-sm flex items-center gap-3 border-b dark:border-slate-700"><button onClick={onClose}><ArrowLeft/></button><h1 className="text-lg font-bold dark:text-white">設定</h1></div><div className="p-6 space-y-6"><div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border dark:border-slate-700 flex justify-between items-center"><h2 className="text-sm font-bold dark:text-slate-200 flex items-center gap-2"><Moon size={16}/> 夜間模式</h2><button onClick={toggleDarkMode} className={`w-12 h-6 rounded-full p-1 transition-colors ${isDarkMode?'bg-blue-600':'bg-gray-300'}`}><div className={`w-4 h-4 bg-white rounded-full transform transition-transform ${isDarkMode?'translate-x-6':'translate-x-0'}`}></div></button></div><div className="p-4 rounded-xl shadow-sm border dark:border-slate-700"><h2 className="text-sm font-bold mb-4 flex items-center gap-2 dark:text-white"><User size={16}/> 帳號</h2><div className="text-lg font-medium dark:text-white">{userEmail}</div></div>
             
-            {/* Migration Section */}
-            {companyId && !isDemoMode && (
-                <div className="p-4 rounded-xl shadow-sm border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-900/10">
-                    <h2 className="text-sm font-bold mb-2 flex items-center gap-2 text-orange-600 dark:text-orange-400"><AlertCircle size={16}/> 資料搬移 (改名)</h2>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">如果您想更改代碼名稱並將資料帶走，請在此輸入新名稱。</p>
-                    <div className="flex gap-2">
-                        <input 
-                            placeholder="輸入新的公司代碼..." 
-                            value={migrateTarget} 
-                            onChange={e=>setMigrateTarget(e.target.value)}
-                            className="flex-1 p-2 bg-white dark:bg-slate-800 border dark:border-slate-600 rounded text-sm dark:text-white outline-none focus:border-orange-500"
-                        />
-                        <button 
-                            onClick={() => { if(migrateTarget && confirm(`確定要將「${companyId}」的所有資料搬移至「${migrateTarget}」嗎？\n(搬移後將自動切換至新代碼)`)) onMigrate(migrateTarget); }}
-                            className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded text-sm font-bold whitespace-nowrap transition-colors shadow-sm"
-                            disabled={!migrateTarget || migrateTarget === companyId}
-                        >
-                            搬移
-                        </button>
-                    </div>
-                </div>
-            )}
+            <div className="p-4 rounded-xl shadow-sm border dark:border-slate-700">
+                <h2 className="text-sm font-bold mb-4 flex items-center gap-2 text-blue-600"><Users size={16}/> 商店名稱 / 公司代碼</h2>
+                <input 
+                    value={tempId} 
+                    onChange={e=>setTempId(e.target.value)} 
+                    className="w-full p-3 bg-gray-50 dark:bg-slate-700 border rounded-lg dark:text-white" 
+                    placeholder="例如：MyCoffeeShop"
+                />
+                <div className="mt-2 text-xs text-gray-400">您可以直接修改上方名稱來為商店改名，系統會詢問是否搬移資料。</div>
+            </div>
 
-            <div className="p-4 rounded-xl shadow-sm border dark:border-slate-700"><h2 className="text-sm font-bold mb-4 flex items-center gap-2 text-purple-600"><Key size={16}/> Gemini API (AI 功能)</h2><input type="password" value={tempKey} onChange={e=>setTempKey(e.target.value)} className="w-full p-3 bg-gray-50 dark:bg-slate-700 border rounded-lg dark:text-white" placeholder="AIzaSy..."/><p className="text-xs text-gray-500 mt-2">請貼上您的 Google Gemini API Key 以啟用 AI 功能。</p></div><button onClick={()=>{setCompanyId(tempId.trim());setApiKey(tempKey.trim());onClose()}} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg">儲存並返回</button></div></div></div>;
+            <div className="p-4 rounded-xl shadow-sm border dark:border-slate-700"><h2 className="text-sm font-bold mb-4 flex items-center gap-2 text-purple-600"><Key size={16}/> Gemini API (AI 功能)</h2><input type="password" value={tempKey} onChange={e=>setTempKey(e.target.value)} className="w-full p-3 bg-gray-50 dark:bg-slate-700 border rounded-lg dark:text-white" placeholder="AIzaSy..."/><p className="text-xs text-gray-500 mt-2">請貼上您的 Google Gemini API Key 以啟用 AI 功能。</p></div><button onClick={()=>{ onSaveSettings(tempId.trim(), tempKey.trim()); }} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg">儲存設定</button></div></div></div>;
         };
 
         const CategoryManager = ({ categories, products, onRename, onDelete, onClose, onAdd }) => {
@@ -395,11 +382,40 @@
             const handleSave = async () => { if (!currentProduct.name) return showToast("請輸入名稱", "error"); setLoading(true); try { const editorName = user.displayName || user.email || 'user_' + user.uid.slice(0,5); const data = { ...currentProduct, lastEditor: editorName }; if (isConfigured && !isDemoMode) { const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app'; let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products'); if (data.companyId === undefined && companyId) data.companyId = companyId; data.timestamp = firebase.firestore.FieldValue.serverTimestamp(); if (currentProduct.id) await ref.doc(currentProduct.id).update(data); else await ref.add(data); } else { const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`; if (currentProduct.id) LocalDB.update(collection, currentProduct.id, data); else LocalDB.add(collection, data); setProducts(LocalDB.getAll(collection)); } showToast("儲存成功", "success"); setView('list'); setCurrentProduct(null); } catch (e) { console.error(e); showToast("儲存失敗", "error"); } setLoading(false); };
             const handleDelete = async (id) => { if (!confirm("確定刪除？")) return; try { if (isConfigured && !isDemoMode) { const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app'; let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products'); await ref.doc(id).delete(); } else { const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`; LocalDB.delete(collection, id); setProducts(LocalDB.getAll(collection)); } showToast("已刪除"); setView('list'); } catch(e) { showToast("刪除失敗", "error"); } };
             
-            // New Migrate Function
-            const handleMigrateData = async (newId) => {
-                if (!companyId) return showToast("目前沒有設定公司代碼，無法搬移", "error");
-                if (!newId || newId === companyId) return;
+            // New Migrate Function Integrated into Settings Save
+            const handleSettingsSave = async (newId, newApiKey) => {
+                setApiKey(newApiKey);
                 
+                // Case 1: No change in ID
+                if (newId === companyId) {
+                    setView('list');
+                    return;
+                }
+
+                // Case 2: New ID is empty (switching to personal)
+                if (!newId) {
+                    setCompanyId('');
+                    setView('list');
+                    return;
+                }
+
+                // Case 3: ID Changed (and old ID existed) -> Ask for action
+                if (companyId) {
+                    if (confirm(`您將商店名稱從「${companyId}」改為「${newId}」。\n\n請問您是要：\n[確定] 改名 (將舊資料搬移過去)\n[取消] 僅切換 (保留舊資料，只切換查看)`)) {
+                        // User chose "Rename" (Move Data)
+                        await migrateData(companyId, newId);
+                    } else {
+                        // User chose "Switch" (Just change ID)
+                        setCompanyId(newId);
+                    }
+                } else {
+                    // Case 4: From personal to Shop ID (Just set it)
+                    setCompanyId(newId);
+                }
+                setView('list');
+            };
+
+            const migrateData = async (oldId, newId) => {
                 setLoading(true);
                 try {
                     // Firebase Mode
@@ -408,10 +424,10 @@
                         let ref = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory');
                         
                         // 1. Fetch all items with old companyId
-                        const snapshot = await ref.where('companyId', '==', companyId).get();
+                        const snapshot = await ref.where('companyId', '==', oldId).get();
                         
                         if (snapshot.empty) {
-                            showToast("目前代碼下沒有資料可搬移", "info");
+                            showToast("舊名稱下沒有資料可搬移", "info");
                             setCompanyId(newId);
                             setLoading(false);
                             return;
@@ -428,10 +444,10 @@
                         });
                         
                         await batch.commit();
-                        showToast(`成功搬移 ${count} 筆資料！`, "success");
+                        showToast(`成功改名並搬移 ${count} 筆資料！`, "success");
                     } else {
                         // LocalDB Mode
-                        const oldCollection = `shared_${companyId}`;
+                        const oldCollection = `shared_${oldId}`;
                         const newCollection = `shared_${newId}`;
                         
                         const oldItems = LocalDB.getAll(oldCollection);
@@ -441,15 +457,15 @@
                         const mergedItems = [...newItems, ...oldItems.map(item => ({...item, companyId: newId}))];
                         LocalDB.saveAll(newCollection, mergedItems);
                         
-                        // Clear old collection (optional, but cleaner for 'move')
+                        // Clear old collection
                         LocalDB.saveAll(oldCollection, []);
                         
-                        showToast(`成功搬移 ${oldItems.length} 筆資料 (本機)！`, "success");
+                        showToast(`成功改名 (本機)！`, "success");
                     }
                     
-                    setCompanyId(newId); // Switch to new ID
+                    setCompanyId(newId); 
                 } catch(e) {
-                    showToast("搬移失敗: " + e.message, "error");
+                    showToast("改名失敗: " + e.message, "error");
                     console.error(e);
                 }
                 setLoading(false);
@@ -526,7 +542,7 @@
             });
 
             if (!user) return <><LoginScreen onLogin={handleLogin} onRegister={handleRegister} onGoogleLogin={handleGoogleLogin} onDemoLogin={handleDemoLogin} />{toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}</>;
-            if (view === 'settings') return <SettingsView companyId={companyId} setCompanyId={setCompanyId} apiKey={apiKey} setApiKey={setApiKey} onClose={() => setView('list')} userEmail={user.email} isDarkMode={isDarkMode} toggleDarkMode={() => setIsDarkMode(!isDarkMode)} isDemoMode={isDemoMode} onMigrate={handleMigrateData} />;
+            if (view === 'settings') return <SettingsView companyId={companyId} setCompanyId={setCompanyId} apiKey={apiKey} setApiKey={setApiKey} onClose={() => setView('list')} userEmail={user.email} isDarkMode={isDarkMode} toggleDarkMode={() => setIsDarkMode(!isDarkMode)} isDemoMode={isDemoMode} onSaveSettings={handleSettingsSave} />;
             if (view === 'scan') return <><Scanner onScan={(code)=>{ setView('list'); if (scanCallback==='edit') { setCurrentProduct(p=>({...p, barcode:code})); setView('edit'); } else { const found = products.find(p=>p.barcode===code); if(found){ setCurrentProduct(found); setView('detail'); } else if(confirm('查無此商品，新增嗎？')) { setCurrentProduct({name:'', barcode:code, platforms:[{name:'蝦皮',price:''},{name:'FB',price:''},{name:'現場',price:''}], stock: 0, customFields:[], category: ''}); setView('edit'); } } setScanCallback(null); }} onClose={() => setView(scanCallback === 'edit' ? 'edit' : 'list')} />{toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}</>;
 
             return (
