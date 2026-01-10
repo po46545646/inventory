@@ -1,14 +1,17 @@
 <!-- 
     =======================================================
-    🚀 掌上庫存系統 v3.18.10 (詳情頁瀏覽優化版)
+    🚀 掌上庫存系統 v3.18.12 (AI 標籤辨識與存證版)
     =======================================================
     
     更新說明：
-    1. 📜 詳情頁捲動優化：
-       - 修改商品詳情頁結構，將圖片納入捲動區域。
-       - 現在往下滑動時，上方圖片會跟著捲走，不再固定擋住視線，增加可視空間。
-    2. 📉 版面調整：
-       - 將「銷售文案」區塊移至頁面最下方，讓更重要的價格與歷史紀錄優先顯示。
+    1. 📸 新增「標籤/條碼照片」功能：
+       - 在編輯頁面新增第二個照片上傳區，專門用來拍攝「商品標籤」或「原始條碼」。
+       - 這張照片會獨立儲存，方便日後核對原始條碼樣式。
+    2. 🧠 新增「AI 全能辨識」按鈕：
+       - 透過 Gemini AI 分析「標籤照片」，一次同時提取「商品名稱」與「條碼內容」。
+       - 自動填入兩個欄位，省去手動輸入與切換的時間。
+    3. 👁️ 詳情頁更新：
+       - 在商品詳情頁的條碼旁，新增查看「原始標籤圖」的功能。
 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
@@ -371,13 +374,37 @@
             const handleLogout = async () => { if(confirm("確定要登出嗎？")) { if (isConfigured && !isDemoMode) await auth.signOut(); setUser(null); setIsDemoMode(false); showToast("已登出"); } };
             
             const handleAIIdentify = async () => { if (!currentProduct.image) return showToast("請先上傳照片", "error"); setAiLoading(true); try { const res = await callGemini("請辨識此商品名稱，只回傳名稱，不要多餘文字。", currentProduct.image, apiKey); setCurrentProduct(prev => ({ ...prev, name: res.trim() })); showToast("辨識成功！", "magic"); } catch (e) { showToast("API Key 錯誤或額度不足", "error"); } setAiLoading(false); };
-            // New function for AI Barcode Reading
-            const handleAIIdentifyBarcode = async () => { if (!currentProduct.image) return showToast("請先上傳照片", "error"); setAiLoading(true); try { const res = await callGemini("請讀取這張圖片中的條碼數字或是產品上的編號。請『只回傳純數字』，不要包含任何其他文字或標點符號。如果圖片中沒有明顯的數字，請回傳『無法辨識』。", currentProduct.image, apiKey); if (res.includes("無法辨識")) { showToast("AI 無法辨識圖片中的數字", "error"); } else { const number = res.replace(/[^0-9]/g, ''); if (number) { setCurrentProduct(prev => ({ ...prev, barcode: number })); showToast(`已讀取: ${number}`, "magic"); } else { showToast("讀取失敗", "error"); } } } catch (e) { showToast("API Key 錯誤", "error"); } setAiLoading(false); };
-
             const handleAIGenerateDesc = async () => { if (!currentProduct.name) return showToast("請先輸入名稱", "error"); setAiLoading(true); try { const res = await callGemini(`你是專業小編。請為「${currentProduct.name}」寫一段 100 字內的 FB 銷售貼文，語氣活潑、加入 emoji。`, currentProduct.image, apiKey); setCurrentProduct(prev => ({ ...prev, description: res })); showToast("生成成功！", "magic"); } catch (e) { showToast("API Key 錯誤或額度不足", "error"); } setAiLoading(false); };
             const handleAISalesStrategy = async () => { if (!currentProduct.name) return showToast("請先輸入名稱", "error"); setAiLoading(true); try { const prompt = `你是專業電商顧問。請分析商品「${currentProduct.name}」${currentProduct.description ? `(描述：${currentProduct.description})` : ""}。請提供台灣市場的銷售策略：\n1. 🎯 目標客群 (3點)\n2. 🔥 銷售亮點 (3點)\n3. 🏷️ 推薦 Hashtags (5個)\n請用 Markdown 格式與繁體中文清楚呈現。`; const res = await callGemini(prompt, currentProduct.image, apiKey); const newProduct = { ...currentProduct, aiAnalysis: res }; setCurrentProduct(newProduct); if (isConfigured && !isDemoMode) { const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app'; let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products'); await ref.doc(newProduct.id).update({ aiAnalysis: res }); } else { const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`; LocalDB.update(collection, newProduct.id, { aiAnalysis: res }); } showToast("策略生成成功並已儲存！", "magic"); } catch (e) { showToast("API Key 錯誤", "error"); } setAiLoading(false); };
             const handleAIPriceEstimate = async () => { if (!currentProduct.name) return showToast("請先輸入名稱", "error"); setAiLoading(true); try { const res = await callGemini(`商品：「${currentProduct.name}」。請根據一般台灣市場行情，提供一個合理的售價區間 (TWD)，並簡述理由(20字內)。請直接回傳純文字，例如：『建議 $500-$600，市場均價』。`, currentProduct.image, apiKey); alert(`💰 AI 估價建議：\n\n${res}`); } catch (e) { showToast("API Key 錯誤", "error"); } setAiLoading(false); };
             const handleAICategorySuggest = async () => { if (!currentProduct.name) return showToast("請先輸入名稱", "error"); setAiLoading(true); try { const res = await callGemini(`商品：「${currentProduct.name}」。請直接提供一個最適合的分類名稱(例如：3C、食品、服飾)，只回傳分類名稱，不要有標點符號。`, currentProduct.image, apiKey); setCurrentProduct(prev => ({ ...prev, category: res.trim() })); showToast(`已建議分類：${res.trim()}`, "magic"); } catch (e) { showToast("API Key 錯誤", "error"); } setAiLoading(false); };
+
+            // NEW: AI Label Scan (Name + Barcode)
+            const handleAIScanLabel = async () => {
+                if (!currentProduct.barcodeImage) return showToast("請先上傳標籤照片", "error");
+                setAiLoading(true);
+                try {
+                    const prompt = "請分析這張圖片，這是一個商品標籤。請辨識上面的『商品名稱』與『條碼內容(可能包含英數字)』。請以 JSON 格式回傳，格式如下：{\"name\": \"識別到的名稱\", \"barcode\": \"識別到的條碼\"}。如果找不到名稱或條碼，請留空。只回傳 JSON，不要其他文字。";
+                    const res = await callGemini(prompt, currentProduct.barcodeImage, apiKey);
+                    const jsonMatch = res.match(/\{[\s\S]*\}/);
+                    if (jsonMatch) {
+                        const data = JSON.parse(jsonMatch[0]);
+                        setCurrentProduct(prev => ({
+                            ...prev,
+                            name: data.name || prev.name,
+                            barcode: data.barcode || prev.barcode
+                        }));
+                        if(data.name || data.barcode) showToast(`成功辨識：${data.name || ''} / ${data.barcode || ''}`, "magic");
+                        else showToast("未能辨識出明顯資訊", "info");
+                    } else {
+                        showToast("AI 回傳格式無法解析", "error");
+                    }
+                } catch (e) {
+                    showToast("API Key 錯誤或解析失敗", "error");
+                    console.error(e);
+                }
+                setAiLoading(false);
+            };
 
             const handleAddHistory = () => { if(!newHistory.price) return showToast("請輸入售價", "error"); const historyItem = { ...newHistory, id: Date.now() }; const updatedHistory = [historyItem, ...(currentProduct.salesHistory || [])].sort((a, b) => new Date(b.date) - new Date(a.date)); setCurrentProduct({ ...currentProduct, salesHistory: updatedHistory }); setNewHistory({ date: new Date().toISOString().split('T')[0], price: '', note: '' }); showToast("已加入紀錄", "success"); };
             
@@ -635,7 +662,7 @@
                     {/* Detail View */}
                     {view === 'detail' && currentProduct && (
                         <div className="fixed inset-0 z-40 bg-gray-50 dark:bg-slate-900 flex flex-col justify-center items-center md:bg-black/60 md:backdrop-blur-sm p-0 md:p-6">
-                           <div className="w-full h-full md:w-full md:max-w-4xl md:h-[85vh] bg-white dark:bg-slate-800 md:rounded-2xl shadow-2xl overflow-hidden relative">
+                           <div className="w-full h-full md:w-full md:max-w-4xl md:h-[85vh] bg-white dark:bg-slate-800 md:rounded-2xl shadow-2xl flex flex-col overflow-hidden relative">
                                 <div className="h-full overflow-y-auto modal-scroll">
                                     <div className="w-full h-64 md:h-72 bg-gray-100 dark:bg-slate-700 relative group">
                                         <img src={currentProduct.image} className="w-full h-full object-cover" />
@@ -646,6 +673,7 @@
                                         <h1 className="text-2xl md:text-3xl font-bold mb-2 text-gray-800 dark:text-white">{currentProduct.name}</h1>
                                         <div className="flex gap-2 text-gray-500 dark:text-slate-400 mb-6 items-center">
                                             <Barcode /> <span className="font-mono text-lg">{currentProduct.barcode}</span>
+                                            {currentProduct.barcodeImage && <div className="relative group cursor-pointer" onClick={() => window.open(currentProduct.barcodeImage)}><ImageIcon size={16} className="text-blue-500"/><span className="absolute bottom-full left-1/2 -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">查看原始標籤</span></div>}
                                             <span className={`text-xs px-2 py-1 rounded-full flex items-center gap-1 font-bold ${currentProduct.stock > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}><Archive size={12}/> 庫存: {currentProduct.stock || 0}</span>
                                             {currentProduct.category && <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-300 rounded-full flex items-center gap-1"><Tag size={12}/>{currentProduct.category}</span>}
                                         </div>
@@ -709,10 +737,10 @@
                                         <div className="space-y-6">
                                             <div className="flex flex-col items-center gap-3">
                                                 <div className="w-full aspect-square bg-gray-200 dark:bg-slate-700 rounded-xl overflow-hidden relative border-2 border-dashed border-gray-300 dark:border-slate-600 group hover:border-blue-400 transition-colors">
-                                                    {currentProduct.image ? <img src={currentProduct.image} className="w-full h-full object-cover" /> : <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 dark:text-slate-500"><Camera size={32}/><span className="text-xs mt-2">點擊上傳</span></div>}
+                                                    {currentProduct.image ? <img src={currentProduct.image} className="w-full h-full object-cover" /> : <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 dark:text-slate-500"><Camera size={32}/><span className="text-xs mt-2">點擊上傳商品主圖</span></div>}
                                                     <input type="file" accept="image/*" onChange={e=>{const f=e.target.files[0];if(f)compressImage(f).then(b=>setCurrentProduct(p=>({...p,image:b})))}} className="absolute inset-0 opacity-0 cursor-pointer" />
                                                 </div>
-                                                <button onClick={handleAIIdentify} disabled={aiLoading} className="w-full text-xs bg-indigo-100 dark:bg-indigo-900/50 hover:bg-indigo-200 dark:hover:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors font-bold"><Sparkles size={14}/> {aiLoading?'AI 辨識中...':'AI 辨識名稱'}</button>
+                                                <button onClick={handleAIIdentify} disabled={aiLoading} className="w-full text-xs bg-indigo-100 dark:bg-indigo-900/50 hover:bg-indigo-200 dark:hover:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors font-bold"><Sparkles size={14}/> {aiLoading?'AI 辨識中...':'AI 辨識名稱 (從主圖)'}</button>
                                             </div>
                                         </div>
 
@@ -749,15 +777,34 @@
                                                     </div>
                                                 )}
                                                 
-                                                <div className="space-y-1">
-                                                    <label className="text-xs font-bold text-gray-500 dark:text-slate-400 uppercase ml-1">條碼 (Barcode)</label>
-                                                    <div className="flex gap-2">
-                                                        <input value={currentProduct.barcode} onChange={e=>setCurrentProduct({...currentProduct, barcode:e.target.value})} className="flex-1 p-3 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 dark:text-white focus:border-blue-500 rounded-lg outline-none font-mono" placeholder="掃描或手動輸入" />
-                                                        <button onClick={()=>{setScanCallback('edit');setView('scan')}} className="px-4 py-2 bg-gray-800 hover:bg-gray-700 dark:bg-slate-600 dark:hover:bg-slate-500 text-white rounded-lg transition-colors flex items-center gap-2 whitespace-nowrap"><Camera size={18} /><span>掃描讀取</span></button>
+                                                <div className="space-y-2 bg-gray-50 dark:bg-slate-700/50 p-3 rounded-xl border border-gray-200 dark:border-slate-600">
+                                                    <div className="flex justify-between items-center mb-1">
+                                                        <label className="text-xs font-bold text-gray-500 dark:text-slate-400 uppercase ml-1">條碼 (Barcode) 設定</label>
+                                                        {currentProduct.barcodeImage && <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1"><ImageIcon size={12}/> 已存標籤圖</span>}
                                                     </div>
-                                                    <div className="flex gap-2 mt-2">
-                                                        <button onClick={() => setCurrentProduct({...currentProduct, barcode: generateRandomBarcode()})} className="flex-1 py-2 text-xs bg-gray-100 hover:bg-gray-200 dark:bg-slate-600 dark:hover:bg-slate-500 text-gray-600 dark:text-slate-200 rounded-lg flex items-center justify-center gap-1 transition-colors"><Wand size={14}/> 🎲 自動生成</button>
-                                                        <button onClick={handleAIIdentifyBarcode} disabled={aiLoading} className="flex-1 py-2 text-xs bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 rounded-lg flex items-center justify-center gap-1 transition-colors"><Brain size={14}/> 🧠 AI 讀取圖片</button>
+                                                    
+                                                    <div className="flex gap-2">
+                                                        <input value={currentProduct.barcode} onChange={e=>setCurrentProduct({...currentProduct, barcode:e.target.value})} className="flex-1 p-3 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 dark:text-white focus:border-blue-500 rounded-lg outline-none font-mono" placeholder="掃描或手動輸入" />
+                                                        <button onClick={()=>{setScanCallback('edit');setView('scan')}} className="px-4 py-2 bg-gray-800 hover:bg-gray-700 dark:bg-slate-600 dark:hover:bg-slate-500 text-white rounded-lg transition-colors flex items-center gap-2 whitespace-nowrap"><Camera size={18} /><span>掃描</span></button>
+                                                    </div>
+
+                                                    <div className="flex gap-2">
+                                                        <button onClick={() => setCurrentProduct({...currentProduct, barcode: generateRandomBarcode()})} className="flex-1 py-2 text-xs bg-gray-200 hover:bg-gray-300 dark:bg-slate-600 dark:hover:bg-slate-500 text-gray-700 dark:text-slate-200 rounded-lg flex items-center justify-center gap-1 transition-colors"><Wand size={14}/> 自動生成數字</button>
+                                                    </div>
+
+                                                    <div className="mt-2 border-t border-gray-200 dark:border-slate-600 pt-2">
+                                                        <div className="flex gap-2 items-center">
+                                                            <div className="w-16 h-16 bg-white dark:bg-slate-800 border border-dashed border-gray-300 dark:border-slate-500 rounded-lg overflow-hidden relative flex-shrink-0">
+                                                                {currentProduct.barcodeImage ? <img src={currentProduct.barcodeImage} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-gray-400"><Camera size={20}/></div>}
+                                                                <input type="file" accept="image/*" onChange={e=>{const f=e.target.files[0];if(f)compressImage(f).then(b=>setCurrentProduct(p=>({...p,barcodeImage:b})))}} className="absolute inset-0 opacity-0 cursor-pointer" title="上傳標籤/條碼照片" />
+                                                            </div>
+                                                            <div className="flex-1">
+                                                                <div className="text-xs text-gray-500 dark:text-slate-400 mb-1">上傳標籤/條碼原始照片，AI 幫你讀！</div>
+                                                                <button onClick={handleAIScanLabel} disabled={aiLoading || !currentProduct.barcodeImage} className={`w-full py-2 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg flex items-center justify-center gap-1 transition-colors shadow-sm ${(aiLoading || !currentProduct.barcodeImage) ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                                                    <Sparkles size={14}/> {aiLoading ? 'AI 讀取中...' : '✨ AI 讀取標籤 (名稱+條碼)'}
+                                                                </button>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
