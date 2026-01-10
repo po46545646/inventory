@@ -1,13 +1,15 @@
 <!-- 
     =======================================================
-    🚀 掌上庫存系統 v3.16 (自訂分類增強版)
+    🚀 掌上庫存系統 v3.17 (庫存管理 & 匯出增強版)
     =======================================================
     
     更新說明：
-    1. 介面微調：標題由「我的庫存」改為「庫存」。
-    2. 功能升級：分類管理新增「手動新增分類」功能。
-       - 即使該分類下暫無商品，也能預先建立分類標籤。
-       - 建立的分類會自動儲存在本地設定中，並同步顯示於編輯頁面的快速選單。
+    1. 📦 新增「庫存數量 (Stock)」欄位：
+       - 編輯頁面可輸入數量。
+       - 列表頁面顯示庫存狀態 (綠色=有貨, 紅色=缺貨)。
+    2. 📊 恢復「匯出 CSV」功能：
+       - 點擊下載按鈕可匯出完整報表，支援 Excel 開啟 (UTF-8 BOM)。
+       - 匯出欄位包含：名稱、條碼、分類、庫存、售價、文案等。
 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
@@ -166,9 +168,10 @@
             Edit2: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>),
             Trash2: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>),
             Brain: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12 16v-4"/><path d="M12 8h.01"/><path d="M20.8 10.2a5.5 5.5 0 0 0-8.8-7.2 5.5 5.5 0 0 0-8.8 7.2c-1.2 1.6-1.2 3.8 0 5.4a5.5 5.5 0 0 0 8.8 7.2 5.5 5.5 0 0 0 8.8-7.2c1.2-1.6 1.2-3.8 0-5.4Z"/></svg>),
-            DollarSign: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>)
+            DollarSign: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>),
+            Archive: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>)
         };
-        const { Camera, Barcode, Plus, Search, ArrowLeft, ImageIcon, X, AlertCircle, Sparkles, Wand, Download, LogOut, User, Settings, Users, Key, GoogleLogo, Moon, Calendar, Clock, Tag, Edit2, Trash2, Brain, DollarSign } = Icons;
+        const { Camera, Barcode, Plus, Search, ArrowLeft, ImageIcon, X, AlertCircle, Sparkles, Wand, Download, LogOut, User, Settings, Users, Key, GoogleLogo, Moon, Calendar, Clock, Tag, Edit2, Trash2, Brain, DollarSign, Archive } = Icons;
 
         // --- Utils & AI ---
         const callGemini = async (prompt, imageBase64 = null, apiKey = null) => {
@@ -253,6 +256,12 @@
                 return product.lastSoldPrice || 0;
             };
             const latestPrice = getLatestPrice();
+            
+            // Stock Color Logic
+            const stock = product.stock || 0;
+            const stockColor = stock > 0 
+                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' 
+                : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300';
 
             return (
                 <div onClick={onClick} className="bg-white dark:bg-slate-800 dark:border-slate-700 rounded-xl shadow-sm p-4 flex items-center gap-4 active:bg-gray-50 dark:active:bg-slate-700 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors cursor-pointer border border-gray-100 relative overflow-hidden h-full group">
@@ -264,7 +273,12 @@
                         <h3 className="font-bold text-gray-800 dark:text-white text-lg truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{product.name}</h3>
                         <div className="flex justify-between items-center mt-1">
                             <p className="text-gray-500 dark:text-slate-400 text-sm flex items-center gap-1"><Barcode size={14} /> {product.barcode}</p>
-                            {product.category && <span className="text-[10px] px-2 py-0.5 bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-300 rounded-full flex items-center gap-1"><Tag size={10}/>{product.category}</span>}
+                            <div className="flex gap-1">
+                                <span className={`text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1 font-bold ${stockColor}`}>
+                                    <Archive size={10}/> 庫存: {stock}
+                                </span>
+                                {product.category && <span className="text-[10px] px-2 py-0.5 bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-300 rounded-full flex items-center gap-1"><Tag size={10}/>{product.category}</span>}
+                            </div>
                         </div>
                         <div className="mt-2 flex flex-col gap-1">
                             <div className="flex justify-between items-end">
@@ -282,7 +296,7 @@
             );
         };
 
-        // ... (LoginScreen & SettingsView)
+        // ... (LoginScreen & SettingsView same as v3.16)
         const LoginScreen = ({ onLogin, onRegister, onGoogleLogin, onDemoLogin }) => {
             const [email, setEmail] = React.useState('');
             const [password, setPassword] = React.useState('');
@@ -298,72 +312,12 @@
             return <div className="min-h-screen bg-gray-100 dark:bg-slate-900 flex flex-col items-center"><div className="w-full max-w-2xl bg-white dark:bg-slate-800 min-h-screen shadow-2xl md:min-h-0 md:h-auto md:my-10 md:rounded-2xl overflow-hidden"><div className="bg-white dark:bg-slate-800 p-4 shadow-sm flex items-center gap-3 border-b dark:border-slate-700"><button onClick={onClose}><ArrowLeft/></button><h1 className="text-lg font-bold dark:text-white">設定</h1></div><div className="p-6 space-y-6"><div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border dark:border-slate-700 flex justify-between items-center"><h2 className="text-sm font-bold dark:text-slate-200 flex items-center gap-2"><Moon size={16}/> 夜間模式</h2><button onClick={toggleDarkMode} className={`w-12 h-6 rounded-full p-1 transition-colors ${isDarkMode?'bg-blue-600':'bg-gray-300'}`}><div className={`w-4 h-4 bg-white rounded-full transform transition-transform ${isDarkMode?'translate-x-6':'translate-x-0'}`}></div></button></div><div className="p-4 rounded-xl shadow-sm border dark:border-slate-700"><h2 className="text-sm font-bold mb-4 flex items-center gap-2 dark:text-white"><User size={16}/> 帳號</h2><div className="text-lg font-medium dark:text-white">{userEmail}</div></div><div className="p-4 rounded-xl shadow-sm border dark:border-slate-700"><h2 className="text-sm font-bold mb-4 flex items-center gap-2 text-blue-600"><Users size={16}/> 公司代碼</h2><input value={tempId} onChange={e=>setTempId(e.target.value)} className="w-full p-3 bg-gray-50 dark:bg-slate-700 border rounded-lg dark:text-white" disabled={isDemoMode}/><div className="mt-2 text-xs text-gray-400">{tempId?`目前: ${tempId}`:'個人模式'}</div></div><div className="p-4 rounded-xl shadow-sm border dark:border-slate-700"><h2 className="text-sm font-bold mb-4 flex items-center gap-2 text-purple-600"><Key size={16}/> Gemini API (AI 功能)</h2><input type="password" value={tempKey} onChange={e=>setTempKey(e.target.value)} className="w-full p-3 bg-gray-50 dark:bg-slate-700 border rounded-lg dark:text-white" placeholder="AIzaSy..."/><p className="text-xs text-gray-500 mt-2">請貼上您的 Google Gemini API Key 以啟用 AI 功能。</p></div><button onClick={()=>{setCompanyId(tempId.trim());setApiKey(tempKey.trim());onClose()}} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg">儲存</button></div></div></div>;
         };
 
-        // --- Category Manager Component (Updated) ---
         const CategoryManager = ({ categories, products, onRename, onDelete, onClose, onAdd }) => {
             const [editTarget, setEditTarget] = React.useState(null);
             const [newName, setNewName] = React.useState('');
             const [addName, setAddName] = React.useState('');
-
-            const handleAdd = () => {
-                if(addName && !categories.includes(addName)) {
-                    onAdd(addName);
-                    setAddName('');
-                }
-            };
-
-            return (
-                <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden max-h-[80vh] flex flex-col">
-                        <div className="p-4 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center bg-gray-50 dark:bg-slate-900/50">
-                            <h3 className="font-bold text-lg dark:text-white flex items-center gap-2"><Tag size={20} className="text-blue-600"/> 分類管理</h3>
-                            <button onClick={onClose}><X className="text-gray-500"/></button>
-                        </div>
-                        
-                        {/* Add New Category Section */}
-                        <div className="p-4 border-b border-gray-100 dark:border-slate-700 bg-blue-50/50 dark:bg-blue-900/10">
-                            <div className="flex gap-2">
-                                <input 
-                                    value={addName} 
-                                    onChange={e => setAddName(e.target.value)}
-                                    className="flex-1 px-3 py-2 border border-blue-200 dark:border-blue-800 rounded-lg dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
-                                    placeholder="輸入新分類名稱..."
-                                />
-                                <button onClick={handleAdd} disabled={!addName} className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors whitespace-nowrap">新增</button>
-                            </div>
-                        </div>
-
-                        <div className="p-4 overflow-y-auto flex-1 space-y-2">
-                            {categories.filter(c => c !== '全部').map(cat => {
-                                const count = products.filter(p => p.category === cat).length;
-                                return (
-                                    <div key={cat} className="flex items-center justify-between p-3 bg-white dark:bg-slate-700 border border-gray-100 dark:border-slate-600 rounded-xl">
-                                        {editTarget === cat ? (
-                                            <div className="flex-1 flex gap-2">
-                                                <input autoFocus value={newName} onChange={e => setNewName(e.target.value)} className="flex-1 px-2 py-1 border rounded dark:bg-slate-600 dark:text-white" placeholder="新名稱" />
-                                                <button onClick={() => { onRename(cat, newName); setEditTarget(null); }} className="bg-green-500 text-white px-3 rounded text-sm">OK</button>
-                                                <button onClick={() => setEditTarget(null)} className="bg-gray-300 text-gray-700 px-3 rounded text-sm">取消</button>
-                                            </div>
-                                        ) : (
-                                            <>
-                                                <div className="flex-1">
-                                                    <span className="font-bold text-gray-800 dark:text-white">{cat}</span>
-                                                    <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${count > 0 ? 'bg-gray-100 dark:bg-slate-600 text-gray-500 dark:text-slate-300' : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'}`}>{count > 0 ? `${count} 項` : '自訂/無商品'}</span>
-                                                </div>
-                                                <div className="flex gap-1">
-                                                    <button onClick={() => { setEditTarget(cat); setNewName(cat); }} className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-slate-600 rounded"><Edit2 size={16}/></button>
-                                                    <button onClick={() => onDelete(cat)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-slate-600 rounded"><Trash2 size={16}/></button>
-                                                </div>
-                                            </>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                            {categories.length <= 1 && <div className="text-center text-gray-400 py-4">目前沒有自訂分類</div>}
-                        </div>
-                        <div className="p-3 bg-gray-50 dark:bg-slate-900/50 text-xs text-gray-500 text-center">提示：修改分類名稱會同步更新所有相關商品</div>
-                    </div>
-                </div>
-            );
+            const handleAdd = () => { if(addName && !categories.includes(addName)) { onAdd(addName); setAddName(''); } };
+            return <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm"><div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden max-h-[80vh] flex flex-col"><div className="p-4 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center bg-gray-50 dark:bg-slate-900/50"><h3 className="font-bold text-lg dark:text-white flex items-center gap-2"><Tag size={20} className="text-blue-600"/> 分類管理</h3><button onClick={onClose}><X className="text-gray-500"/></button></div><div className="p-4 border-b border-gray-100 dark:border-slate-700 bg-blue-50/50 dark:bg-blue-900/10"><div className="flex gap-2"><input value={addName} onChange={e => setAddName(e.target.value)} className="flex-1 px-3 py-2 border border-blue-200 dark:border-blue-800 rounded-lg dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none" placeholder="輸入新分類名稱..." /><button onClick={handleAdd} disabled={!addName} className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors whitespace-nowrap">新增</button></div></div><div className="p-4 overflow-y-auto flex-1 space-y-2">{categories.filter(c => c !== '全部').map(cat => { const count = products.filter(p => p.category === cat).length; return (<div key={cat} className="flex items-center justify-between p-3 bg-white dark:bg-slate-700 border border-gray-100 dark:border-slate-600 rounded-xl">{editTarget === cat ? (<div className="flex-1 flex gap-2"><input autoFocus value={newName} onChange={e => setNewName(e.target.value)} className="flex-1 px-2 py-1 border rounded dark:bg-slate-600 dark:text-white" placeholder="新名稱" /><button onClick={() => { onRename(cat, newName); setEditTarget(null); }} className="bg-green-500 text-white px-3 rounded text-sm">OK</button><button onClick={() => setEditTarget(null)} className="bg-gray-300 text-gray-700 px-3 rounded text-sm">取消</button></div>) : (<><div className="flex-1"><span className="font-bold text-gray-800 dark:text-white">{cat}</span><span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${count > 0 ? 'bg-gray-100 dark:bg-slate-600 text-gray-500 dark:text-slate-300' : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'}`}>{count > 0 ? `${count} 項` : '自訂/無商品'}</span></div><div className="flex gap-1"><button onClick={() => { setEditTarget(cat); setNewName(cat); }} className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-slate-600 rounded"><Edit2 size={16}/></button><button onClick={() => onDelete(cat)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-slate-600 rounded"><Trash2 size={16}/></button></div></>)}</div>); })}</div></div></div>;
         };
 
         const App = () => {
@@ -383,212 +337,65 @@
             const [selectedCategory, setSelectedCategory] = React.useState('全部');
             const [showCatManager, setShowCatManager] = React.useState(false);
             const [newHistory, setNewHistory] = React.useState({ date: new Date().toISOString().split('T')[0], price: '', note: '' });
-            
-            // State for Manual Categories (stored in localStorage)
-            const [manualCats, setManualCats] = React.useState(() => {
-                try { return JSON.parse(localStorage.getItem('inventory_custom_cats') || '[]'); } catch { return []; }
-            });
+            const [manualCats, setManualCats] = React.useState(() => { try { return JSON.parse(localStorage.getItem('inventory_custom_cats') || '[]'); } catch { return []; } });
 
-            React.useEffect(() => {
-                if (isDarkMode) document.documentElement.classList.add('dark');
-                else document.documentElement.classList.remove('dark');
-                localStorage.setItem('inventory_dark_mode', isDarkMode);
-            }, [isDarkMode]);
-
+            React.useEffect(() => { if (isDarkMode) document.documentElement.classList.add('dark'); else document.documentElement.classList.remove('dark'); localStorage.setItem('inventory_dark_mode', isDarkMode); }, [isDarkMode]);
             const setCompanyId = (id) => { setCompanyIdState(id); localStorage.setItem('inventory_company_id', id); showToast(id ? `已切換至: ${id}` : "已切換回個人模式", "success"); };
             const setApiKey = (key) => { setApiKeyState(key); localStorage.setItem('inventory_api_key', key); };
             const showToast = (message, type = 'info') => setToast({ message, type });
 
-            // 智能分類列表 (合併 商品分類 與 自訂分類)
-            const categories = React.useMemo(() => {
-                const productCats = new Set(products.map(p => p.category || '未分類').filter(c => c));
-                const all = new Set([...productCats, ...manualCats]);
-                return ['全部', ...Array.from(all).sort()];
-            }, [products, manualCats]);
+            const categories = React.useMemo(() => { const productCats = new Set(products.map(p => p.category || '未分類').filter(c => c)); const all = new Set([...productCats, ...manualCats]); return ['全部', ...Array.from(all).sort()]; }, [products, manualCats]);
 
-            // Auth & Data fetching
-            React.useEffect(() => {
-                if (isConfigured && auth) {
-                    const unsubscribe = auth.onAuthStateChanged((u) => setUser(u));
-                    return () => unsubscribe();
-                }
-            }, []);
+            React.useEffect(() => { if (isConfigured && auth) { const unsubscribe = auth.onAuthStateChanged((u) => setUser(u)); return () => unsubscribe(); } }, []);
+            React.useEffect(() => { if (!user) { setProducts([]); return; } if (isConfigured && !isDemoMode) { const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app'; let q; if (companyId) { q = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory').where('companyId', '==', companyId); } else { q = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products').orderBy('timestamp', 'desc'); } const unsubscribe = q.onSnapshot((snapshot) => { let items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })); if (companyId) items.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)); setProducts(items); }, (error) => showToast("讀取失敗", "error")); return () => unsubscribe(); } else { const collectionKey = companyId ? `shared_${companyId}` : `user_${user.uid}`; const items = LocalDB.getAll(collectionKey); if (items.length === 0) { const demoItem = { id: 'demo_1', name: '範例商品 (iPhone 15)', barcode: '123456789', category: '電子產品', platforms: [{name:'蝦皮', price: 30000}], lastSoldPrice: 29000, stock: 10, description: '這是一筆範例資料', timestamp: {seconds: Date.now()/1000}, lastEditor: 'DemoUser', aiAnalysis: "尚無分析資料" }; LocalDB.add(collectionKey, demoItem); setProducts([demoItem]); } else { setProducts(items); } } }, [user, companyId, view, isDemoMode]);
 
-            React.useEffect(() => {
-                if (!user) { setProducts([]); return; }
-                if (isConfigured && !isDemoMode) {
-                    const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app';
-                    let q;
-                    if (companyId) { q = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory').where('companyId', '==', companyId); } 
-                    else { q = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products').orderBy('timestamp', 'desc'); }
-                    const unsubscribe = q.onSnapshot((snapshot) => {
-                        let items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                        if (companyId) items.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
-                        setProducts(items);
-                    }, (error) => showToast("讀取失敗", "error"));
-                    return () => unsubscribe();
-                } else {
-                    const collectionKey = companyId ? `shared_${companyId}` : `user_${user.uid}`;
-                    const items = LocalDB.getAll(collectionKey);
-                    if (items.length === 0) {
-                        const demoItem = { id: 'demo_1', name: '範例商品 (iPhone 15)', barcode: '123456789', category: '電子產品', platforms: [{name:'蝦皮', price: 30000}], lastSoldPrice: 29000, description: '這是一筆範例資料', timestamp: {seconds: Date.now()/1000}, lastEditor: 'DemoUser', aiAnalysis: "尚無分析資料" };
-                        LocalDB.add(collectionKey, demoItem);
-                        setProducts([demoItem]);
-                    } else { setProducts(items); }
-                }
-            }, [user, companyId, view, isDemoMode]);
-
-            // Actions
             const handleLogin = async (email, password) => { if (isConfigured) { try { await auth.signInWithEmailAndPassword(email, password); showToast("登入成功！"); } catch (e) { showToast("登入失敗: " + e.message, "error"); } } };
             const handleDemoLogin = () => { const demoUser = { uid: "demo_user", email: "guest@demo.com", displayName: "訪客" }; setIsDemoMode(true); setUser(demoUser); showToast("已進入演示模式", "success"); };
             const handleGoogleLogin = async () => { if (!isConfigured) return; const provider = new firebase.auth.GoogleAuthProvider(); try { await auth.signInWithPopup(provider); showToast("Google 登入成功！"); } catch (error) { showToast("登入失敗", "error"); } };
             const handleRegister = async (email, password) => { try { await auth.createUserWithEmailAndPassword(email, password); showToast("註冊成功！"); } catch (e) { showToast("註冊失敗: " + e.message, "error"); } };
             const handleLogout = async () => { if(confirm("確定要登出嗎？")) { if (isConfigured && !isDemoMode) await auth.signOut(); setUser(null); setIsDemoMode(false); showToast("已登出"); } };
             
-            // AI Functions (Keeping existing implementation)
-            const handleAIIdentify = async () => { 
-                if (!currentProduct.image) return showToast("請先上傳照片", "error"); 
-                setAiLoading(true); 
-                try { 
-                    const res = await callGemini("請辨識此商品名稱，只回傳名稱，不要多餘文字。", currentProduct.image, apiKey); 
-                    setCurrentProduct(prev => ({ ...prev, name: res.trim() })); 
-                    showToast("辨識成功！", "magic"); 
-                } catch (e) { showToast("API Key 錯誤或額度不足", "error"); } 
-                setAiLoading(false); 
-            };
+            const handleAIIdentify = async () => { if (!currentProduct.image) return showToast("請先上傳照片", "error"); setAiLoading(true); try { const res = await callGemini("請辨識此商品名稱，只回傳名稱，不要多餘文字。", currentProduct.image, apiKey); setCurrentProduct(prev => ({ ...prev, name: res.trim() })); showToast("辨識成功！", "magic"); } catch (e) { showToast("API Key 錯誤或額度不足", "error"); } setAiLoading(false); };
+            const handleAIGenerateDesc = async () => { if (!currentProduct.name) return showToast("請先輸入名稱", "error"); setAiLoading(true); try { const res = await callGemini(`你是專業小編。請為「${currentProduct.name}」寫一段 100 字內的 FB 銷售貼文，語氣活潑、加入 emoji。`, currentProduct.image, apiKey); setCurrentProduct(prev => ({ ...prev, description: res })); showToast("生成成功！", "magic"); } catch (e) { showToast("API Key 錯誤或額度不足", "error"); } setAiLoading(false); };
+            const handleAISalesStrategy = async () => { if (!currentProduct.name) return showToast("請先輸入名稱", "error"); setAiLoading(true); try { const prompt = `你是專業電商顧問。請分析商品「${currentProduct.name}」${currentProduct.description ? `(描述：${currentProduct.description})` : ""}。請提供台灣市場的銷售策略：\n1. 🎯 目標客群 (3點)\n2. 🔥 銷售亮點 (3點)\n3. 🏷️ 推薦 Hashtags (5個)\n請用 Markdown 格式與繁體中文清楚呈現。`; const res = await callGemini(prompt, currentProduct.image, apiKey); const newProduct = { ...currentProduct, aiAnalysis: res }; setCurrentProduct(newProduct); if (isConfigured && !isDemoMode) { const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app'; let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products'); await ref.doc(newProduct.id).update({ aiAnalysis: res }); } else { const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`; LocalDB.update(collection, newProduct.id, { aiAnalysis: res }); } showToast("策略生成成功並已儲存！", "magic"); } catch (e) { showToast("API Key 錯誤", "error"); } setAiLoading(false); };
+            const handleAIPriceEstimate = async () => { if (!currentProduct.name) return showToast("請先輸入名稱", "error"); setAiLoading(true); try { const res = await callGemini(`商品：「${currentProduct.name}」。請根據一般台灣市場行情，提供一個合理的售價區間 (TWD)，並簡述理由(20字內)。請直接回傳純文字，例如：『建議 $500-$600，市場均價』。`, currentProduct.image, apiKey); alert(`💰 AI 估價建議：\n\n${res}`); } catch (e) { showToast("API Key 錯誤", "error"); } setAiLoading(false); };
+            const handleAICategorySuggest = async () => { if (!currentProduct.name) return showToast("請先輸入名稱", "error"); setAiLoading(true); try { const res = await callGemini(`商品：「${currentProduct.name}」。請直接提供一個最適合的分類名稱(例如：3C、食品、服飾)，只回傳分類名稱，不要有標點符號。`, currentProduct.image, apiKey); setCurrentProduct(prev => ({ ...prev, category: res.trim() })); showToast(`已建議分類：${res.trim()}`, "magic"); } catch (e) { showToast("API Key 錯誤", "error"); } setAiLoading(false); };
 
-            const handleAIGenerateDesc = async () => { 
-                if (!currentProduct.name) return showToast("請先輸入名稱", "error"); 
-                setAiLoading(true); 
-                try { 
-                    const res = await callGemini(`你是專業小編。請為「${currentProduct.name}」寫一段 100 字內的 FB 銷售貼文，語氣活潑、加入 emoji。`, currentProduct.image, apiKey); 
-                    setCurrentProduct(prev => ({ ...prev, description: res })); 
-                    showToast("生成成功！", "magic"); 
-                } catch (e) { showToast("API Key 錯誤或額度不足", "error"); } 
-                setAiLoading(false); 
-            };
-
-            const handleAISalesStrategy = async () => {
-                if (!currentProduct.name) return showToast("請先輸入名稱", "error");
-                setAiLoading(true);
-                try {
-                    const prompt = `你是專業電商顧問。請分析商品「${currentProduct.name}」${currentProduct.description ? `(描述：${currentProduct.description})` : ""}。請提供台灣市場的銷售策略：\n1. 🎯 目標客群 (3點)\n2. 🔥 銷售亮點 (3點)\n3. 🏷️ 推薦 Hashtags (5個)\n請用 Markdown 格式與繁體中文清楚呈現。`;
-                    const res = await callGemini(prompt, currentProduct.image, apiKey);
-                    const newProduct = { ...currentProduct, aiAnalysis: res };
-                    setCurrentProduct(newProduct);
-                    if (isConfigured && !isDemoMode) {
-                        const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app';
-                        let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products');
-                        await ref.doc(newProduct.id).update({ aiAnalysis: res });
-                    } else {
-                        const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`;
-                        LocalDB.update(collection, newProduct.id, { aiAnalysis: res });
-                    }
-                    showToast("策略生成成功並已儲存！", "magic");
-                } catch (e) { showToast("API Key 錯誤", "error"); }
-                setAiLoading(false);
-            };
-
-            const handleAIPriceEstimate = async () => {
-                if (!currentProduct.name) return showToast("請先輸入名稱", "error");
-                setAiLoading(true);
-                try {
-                    const res = await callGemini(`商品：「${currentProduct.name}」。請根據一般台灣市場行情，提供一個合理的售價區間 (TWD)，並簡述理由(20字內)。請直接回傳純文字，例如：『建議 $500-$600，市場均價』。`, currentProduct.image, apiKey);
-                    alert(`💰 AI 估價建議：\n\n${res}`);
-                } catch (e) { showToast("API Key 錯誤", "error"); }
-                setAiLoading(false);
-            };
+            const handleAddHistory = () => { if(!newHistory.price) return showToast("請輸入售價", "error"); const historyItem = { ...newHistory, id: Date.now() }; const updatedHistory = [historyItem, ...(currentProduct.salesHistory || [])].sort((a, b) => new Date(b.date) - new Date(a.date)); setCurrentProduct({ ...currentProduct, salesHistory: updatedHistory }); setNewHistory({ date: new Date().toISOString().split('T')[0], price: '', note: '' }); showToast("已加入紀錄", "success"); };
             
-            const handleAICategorySuggest = async () => {
-                if (!currentProduct.name) return showToast("請先輸入名稱", "error");
-                setAiLoading(true);
-                try {
-                    const res = await callGemini(`商品：「${currentProduct.name}」。請直接提供一個最適合的分類名稱(例如：3C、食品、服飾)，只回傳分類名稱，不要有標點符號。`, currentProduct.image, apiKey);
-                    setCurrentProduct(prev => ({ ...prev, category: res.trim() }));
-                    showToast(`已建議分類：${res.trim()}`, "magic");
-                } catch (e) { showToast("API Key 錯誤", "error"); }
-                setAiLoading(false);
-            };
-
-            const handleAddHistory = () => {
-                if(!newHistory.price) return showToast("請輸入售價", "error");
-                const historyItem = { ...newHistory, id: Date.now() };
-                const updatedHistory = [historyItem, ...(currentProduct.salesHistory || [])].sort((a, b) => new Date(b.date) - new Date(a.date));
-                setCurrentProduct({ ...currentProduct, salesHistory: updatedHistory });
-                setNewHistory({ date: new Date().toISOString().split('T')[0], price: '', note: '' });
-                showToast("已加入紀錄", "success");
-            };
-
-            const handleSave = async () => {
-                if (!currentProduct.name) return showToast("請輸入名稱", "error");
-                setLoading(true);
-                try {
-                    const editorName = user.displayName || user.email || 'user_' + user.uid.slice(0,5);
-                    const data = { ...currentProduct, lastEditor: editorName };
-                    
-                    if (isConfigured && !isDemoMode) {
-                        const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app';
-                        let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products');
-                        if (data.companyId === undefined && companyId) data.companyId = companyId;
-                        data.timestamp = firebase.firestore.FieldValue.serverTimestamp();
-                        if (currentProduct.id) await ref.doc(currentProduct.id).update(data); else await ref.add(data);
-                    } else {
-                        const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`;
-                        if (currentProduct.id) LocalDB.update(collection, currentProduct.id, data); else LocalDB.add(collection, data);
-                        setProducts(LocalDB.getAll(collection));
-                    }
-                    showToast("儲存成功", "success");
-                    setView('list'); setCurrentProduct(null);
-                } catch (e) { console.error(e); showToast("儲存失敗", "error"); }
-                setLoading(false);
-            };
-
+            const handleSave = async () => { if (!currentProduct.name) return showToast("請輸入名稱", "error"); setLoading(true); try { const editorName = user.displayName || user.email || 'user_' + user.uid.slice(0,5); const data = { ...currentProduct, lastEditor: editorName }; if (isConfigured && !isDemoMode) { const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app'; let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products'); if (data.companyId === undefined && companyId) data.companyId = companyId; data.timestamp = firebase.firestore.FieldValue.serverTimestamp(); if (currentProduct.id) await ref.doc(currentProduct.id).update(data); else await ref.add(data); } else { const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`; if (currentProduct.id) LocalDB.update(collection, currentProduct.id, data); else LocalDB.add(collection, data); setProducts(LocalDB.getAll(collection)); } showToast("儲存成功", "success"); setView('list'); setCurrentProduct(null); } catch (e) { console.error(e); showToast("儲存失敗", "error"); } setLoading(false); };
             const handleDelete = async (id) => { if (!confirm("確定刪除？")) return; try { if (isConfigured && !isDemoMode) { const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app'; let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products'); await ref.doc(id).delete(); } else { const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`; LocalDB.delete(collection, id); setProducts(LocalDB.getAll(collection)); } showToast("已刪除"); setView('list'); } catch(e) { showToast("刪除失敗", "error"); } };
             
-            // --- Category Management Handlers (New) ---
-            const handleAddManualCategory = (newCat) => {
-                const updated = [...manualCats, newCat];
-                setManualCats(updated);
-                localStorage.setItem('inventory_custom_cats', JSON.stringify(updated));
-                showToast(`已新增分類：${newCat}`, "success");
-            };
+            const handleAddManualCategory = (newCat) => { const updated = [...manualCats, newCat]; setManualCats(updated); localStorage.setItem('inventory_custom_cats', JSON.stringify(updated)); showToast(`已新增分類：${newCat}`, "success"); };
+            const handleRenameCategory = async (oldName, newName) => { if (!newName || newName === oldName) return; if (!confirm(`確定要將「${oldName}」全部改名為「${newName}」嗎？`)) return; if (manualCats.includes(oldName)) { const updated = manualCats.map(c => c === oldName ? newName : c); setManualCats(updated); localStorage.setItem('inventory_custom_cats', JSON.stringify(updated)); } const affectedProducts = products.filter(p => p.category === oldName); if (affectedProducts.length > 0) { setLoading(true); try { if (isConfigured && !isDemoMode) { const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app'; let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products'); const batch = db.batch(); affectedProducts.forEach(p => { batch.update(ref.doc(p.id), { category: newName }); }); await batch.commit(); } else { const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`; affectedProducts.forEach(p => { LocalDB.update(collection, p.id, { ...p, category: newName }); }); setProducts(LocalDB.getAll(collection)); } showToast(`已更新 ${affectedProducts.length} 個商品的分類`, "success"); } catch(e) { showToast("更新失敗", "error"); } setLoading(false); } };
+            const handleDeleteCategory = async (catName) => { if (!confirm(`確定要刪除「${catName}」分類嗎？`)) return; if (manualCats.includes(catName)) { const updated = manualCats.filter(c => c !== catName); setManualCats(updated); localStorage.setItem('inventory_custom_cats', JSON.stringify(updated)); } const affectedProducts = products.filter(p => p.category === catName); if (affectedProducts.length > 0) { setLoading(true); try { if (isConfigured && !isDemoMode) { const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app'; let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products'); const batch = db.batch(); affectedProducts.forEach(p => { batch.update(ref.doc(p.id), { category: '' }); }); await batch.commit(); } else { const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`; affectedProducts.forEach(p => { LocalDB.update(collection, p.id, { ...p, category: '' }); }); setProducts(LocalDB.getAll(collection)); } showToast(`已移除分類連結`, "success"); } catch(e) { showToast("刪除失敗", "error"); } setLoading(false); } else { showToast("已刪除分類標籤", "success"); } };
 
-            const handleRenameCategory = async (oldName, newName) => {
-                if (!newName || newName === oldName) return; if (!confirm(`確定要將「${oldName}」全部改名為「${newName}」嗎？`)) return;
-                
-                // Update Manual List
-                if (manualCats.includes(oldName)) {
-                    const updated = manualCats.map(c => c === oldName ? newName : c);
-                    setManualCats(updated);
-                    localStorage.setItem('inventory_custom_cats', JSON.stringify(updated));
-                }
-
-                // Update Products
-                const affectedProducts = products.filter(p => p.category === oldName);
-                if (affectedProducts.length > 0) {
-                    setLoading(true);
-                    try { if (isConfigured && !isDemoMode) { const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app'; let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products'); const batch = db.batch(); affectedProducts.forEach(p => { batch.update(ref.doc(p.id), { category: newName }); }); await batch.commit(); } else { const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`; affectedProducts.forEach(p => { LocalDB.update(collection, p.id, { ...p, category: newName }); }); setProducts(LocalDB.getAll(collection)); } showToast(`已更新 ${affectedProducts.length} 個商品的分類`, "success"); } catch(e) { showToast("更新失敗", "error"); } setLoading(false);
-                }
-            };
-
-            const handleDeleteCategory = async (catName) => {
-                if (!confirm(`確定要刪除「${catName}」分類嗎？`)) return; 
-                
-                // Remove from Manual List
-                if (manualCats.includes(catName)) {
-                    const updated = manualCats.filter(c => c !== catName);
-                    setManualCats(updated);
-                    localStorage.setItem('inventory_custom_cats', JSON.stringify(updated));
-                }
-
-                // Remove from Products
-                const affectedProducts = products.filter(p => p.category === catName);
-                if (affectedProducts.length > 0) {
-                    setLoading(true);
-                    try { if (isConfigured && !isDemoMode) { const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app'; let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products'); const batch = db.batch(); affectedProducts.forEach(p => { batch.update(ref.doc(p.id), { category: '' }); }); await batch.commit(); } else { const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`; affectedProducts.forEach(p => { LocalDB.update(collection, p.id, { ...p, category: '' }); }); setProducts(LocalDB.getAll(collection)); } showToast(`已移除分類連結`, "success"); } catch(e) { showToast("刪除失敗", "error"); } setLoading(false);
-                } else {
-                    showToast("已刪除分類標籤", "success");
-                }
+            // Export CSV Logic (Re-implemented)
+            const handleExportCSV = () => {
+                if (products.length === 0) return showToast("沒有資料可匯出", "error");
+                const headers = ["商品名稱", "條碼", "分類", "庫存", "銷售文案", "AI分析", "最新售價"];
+                const rows = products.map(p => {
+                    const price = (p.salesHistory && p.salesHistory.length > 0) ? p.salesHistory[0].price : (p.lastSoldPrice || 0);
+                    return [
+                        `"${(p.name || '').replace(/"/g, '""')}"`,
+                        `"${(p.barcode || '')}"`,
+                        `"${(p.category || '')}"`,
+                        p.stock || 0,
+                        `"${(p.description || '').replace(/"/g, '""').replace(/\n/g, ' ')}"`,
+                        `"${(p.aiAnalysis || '').replace(/"/g, '""').replace(/\n/g, ' ')}"`,
+                        price
+                    ].join(",");
+                });
+                const csvContent = "\uFEFF" + [headers.join(","), ...rows].join("\n");
+                const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = `inventory_export_${new Date().toISOString().slice(0,10)}.csv`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                showToast("匯出成功！", "success");
             };
 
             const filteredProducts = products.filter(p => {
@@ -597,10 +404,9 @@
                 return matchesSearch && matchesCategory;
             });
 
-            // UI
             if (!user) return <><LoginScreen onLogin={handleLogin} onRegister={handleRegister} onGoogleLogin={handleGoogleLogin} onDemoLogin={handleDemoLogin} />{toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}</>;
             if (view === 'settings') return <SettingsView companyId={companyId} setCompanyId={setCompanyId} apiKey={apiKey} setApiKey={setApiKey} onClose={() => setView('list')} userEmail={user.email} isDarkMode={isDarkMode} toggleDarkMode={() => setIsDarkMode(!isDarkMode)} isDemoMode={isDemoMode} />;
-            if (view === 'scan') return <><Scanner onScan={(code)=>{ setView('list'); if (scanCallback==='edit') { setCurrentProduct(p=>({...p, barcode:code})); setView('edit'); } else { const found = products.find(p=>p.barcode===code); if(found){ setCurrentProduct(found); setView('detail'); } else if(confirm('查無此商品，新增嗎？')) { setCurrentProduct({name:'', barcode:code, platforms:[{name:'蝦皮',price:''},{name:'FB',price:''},{name:'現場',price:''}], customFields:[], category: ''}); setView('edit'); } } setScanCallback(null); }} onClose={() => setView(scanCallback === 'edit' ? 'edit' : 'list')} />{toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}</>;
+            if (view === 'scan') return <><Scanner onScan={(code)=>{ setView('list'); if (scanCallback==='edit') { setCurrentProduct(p=>({...p, barcode:code})); setView('edit'); } else { const found = products.find(p=>p.barcode===code); if(found){ setCurrentProduct(found); setView('detail'); } else if(confirm('查無此商品，新增嗎？')) { setCurrentProduct({name:'', barcode:code, platforms:[{name:'蝦皮',price:''},{name:'FB',price:''},{name:'現場',price:''}], stock: 0, customFields:[], category: ''}); setView('edit'); } } setScanCallback(null); }} onClose={() => setView(scanCallback === 'edit' ? 'edit' : 'list')} />{toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}</>;
 
             return (
                 <div className="min-h-screen pb-24 bg-gray-100 dark:bg-slate-900 transition-colors duration-300">
@@ -610,6 +416,7 @@
                                 <h1 className="text-2xl font-bold flex items-center gap-2">庫存 {companyId && <span className="text-xs bg-blue-800 dark:bg-slate-700 px-2 py-1 rounded ml-2 hidden md:inline-block">{companyId}</span>}</h1>
                                 {companyId && <span className="text-xs bg-blue-800 dark:bg-slate-700 px-2 py-1 rounded ml-2 md:hidden">{companyId}</span>}
                                 <div className="flex gap-2">
+                                    <button onClick={handleExportCSV} className="p-2 hover:bg-blue-700 dark:hover:bg-slate-600 rounded-full transition-colors" title="匯出 CSV"><Download size={24} /></button>
                                     <button onClick={() => setView('settings')} className="p-2 hover:bg-blue-700 dark:hover:bg-slate-600 rounded-full transition-colors"><Settings size={24} /></button>
                                     <button onClick={handleLogout} className="p-2 hover:bg-blue-700 dark:hover:bg-slate-600 rounded-full transition-colors"><LogOut size={24} /></button>
                                 </div>
@@ -644,7 +451,7 @@
                         </div>
                     </div>
 
-                    <button onClick={() => { setCurrentProduct({name:'', barcode:generateRandomBarcode(), platforms:[{name:'蝦皮',price:''}], customFields:[], salesHistory: [], category: ''}); setView('edit'); }} className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 text-white w-14 h-14 rounded-full shadow-xl flex items-center justify-center z-30 transition-transform active:scale-95"><Plus size={28} /></button>
+                    <button onClick={() => { setCurrentProduct({name:'', barcode:generateRandomBarcode(), platforms:[{name:'蝦皮',price:''}], stock: 0, customFields:[], salesHistory: [], category: ''}); setView('edit'); }} className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 text-white w-14 h-14 rounded-full shadow-xl flex items-center justify-center z-30 transition-transform active:scale-95"><Plus size={28} /></button>
                     
                     {/* Detail View */}
                     {view === 'detail' && currentProduct && (
@@ -659,6 +466,7 @@
                                     <h1 className="text-2xl md:text-3xl font-bold mb-2 text-gray-800 dark:text-white">{currentProduct.name}</h1>
                                     <div className="flex gap-2 text-gray-500 dark:text-slate-400 mb-6 items-center">
                                         <Barcode /> <span className="font-mono text-lg">{currentProduct.barcode}</span>
+                                        <span className={`text-xs px-2 py-1 rounded-full flex items-center gap-1 font-bold ${currentProduct.stock > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}><Archive size={12}/> 庫存: {currentProduct.stock || 0}</span>
                                         {currentProduct.category && <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-300 rounded-full flex items-center gap-1"><Tag size={12}/>{currentProduct.category}</span>}
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -728,25 +536,31 @@
                                             <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 space-y-4">
                                                 <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-slate-400 uppercase ml-1">商品名稱</label><input value={currentProduct.name} onChange={e=>setCurrentProduct({...currentProduct, name:e.target.value})} className="w-full p-3 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 dark:text-white focus:border-blue-500 rounded-lg outline-none" placeholder="輸入商品名稱" /></div>
                                                 
-                                                <div className="space-y-2">
-                                                    <div className="flex justify-between items-center">
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div className="space-y-1">
                                                         <label className="text-xs font-bold text-gray-500 dark:text-slate-400 uppercase ml-1">分類 (Category)</label>
-                                                        <button onClick={handleAICategorySuggest} disabled={aiLoading} className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1 hover:underline"><Sparkles size={10}/> AI 建議</button>
-                                                    </div>
-                                                    <div className="relative">
-                                                        <Tag className="absolute left-3 top-3 text-gray-400" size={18}/>
-                                                        <input value={currentProduct.category || ''} onChange={e => setCurrentProduct({...currentProduct, category: e.target.value})} className="w-full pl-10 p-3 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 dark:text-white focus:border-blue-500 rounded-lg outline-none" placeholder="輸入分類名稱" />
-                                                    </div>
-                                                    {categories.length > 1 && (
-                                                        <div className="flex flex-wrap gap-2 pt-1">
-                                                            {categories.filter(c => c !== '全部').map(cat => (
-                                                                <button key={cat} onClick={() => setCurrentProduct({...currentProduct, category: cat})} className={`px-3 py-1 text-xs rounded-full transition-colors border ${currentProduct.category === cat ? 'bg-blue-600 text-white border-blue-600' : 'bg-white dark:bg-slate-700 text-gray-600 dark:text-slate-300 border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-600'}`}>
-                                                                    {cat}
-                                                                </button>
-                                                            ))}
+                                                        <div className="relative">
+                                                            <Tag className="absolute left-3 top-3 text-gray-400" size={18}/>
+                                                            <input value={currentProduct.category || ''} onChange={e => setCurrentProduct({...currentProduct, category: e.target.value})} className="w-full pl-10 p-3 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 dark:text-white focus:border-blue-500 rounded-lg outline-none" placeholder="分類" />
                                                         </div>
-                                                    )}
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <label className="text-xs font-bold text-gray-500 dark:text-slate-400 uppercase ml-1">庫存數量 (Stock)</label>
+                                                        <div className="relative">
+                                                            <Archive className="absolute left-3 top-3 text-gray-400" size={18}/>
+                                                            <input type="number" value={currentProduct.stock || 0} onChange={e => setCurrentProduct({...currentProduct, stock: parseInt(e.target.value) || 0})} className="w-full pl-10 p-3 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 dark:text-white focus:border-blue-500 rounded-lg outline-none" placeholder="0" />
+                                                        </div>
+                                                    </div>
                                                 </div>
+                                                {categories.length > 1 && (
+                                                    <div className="flex flex-wrap gap-2 pt-1">
+                                                        {categories.filter(c => c !== '全部').map(cat => (
+                                                            <button key={cat} onClick={() => setCurrentProduct({...currentProduct, category: cat})} className={`px-3 py-1 text-xs rounded-full transition-colors border ${currentProduct.category === cat ? 'bg-blue-600 text-white border-blue-600' : 'bg-white dark:bg-slate-700 text-gray-600 dark:text-slate-300 border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-600'}`}>
+                                                                {cat}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
                                                 
                                                 <div className="space-y-1">
                                                     <label className="text-xs font-bold text-gray-500 dark:text-slate-400 uppercase ml-1">條碼 (Barcode)</label>
