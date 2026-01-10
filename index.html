@@ -1,15 +1,14 @@
 <!-- 
     =======================================================
-    🚀 掌上庫存系統 v3.18.7 (直覺改名優化版)
+    🚀 掌上庫存系統 v3.18.10 (詳情頁瀏覽優化版)
     =======================================================
     
     更新說明：
-    1. ✏️ 直覺式改名 (Settings)：
-       - 恢復「公司代碼」欄位為可直接編輯。
-       - 移除複雜的「資料搬移」獨立區塊。
-       - 當您修改代碼並儲存時，系統會自動詢問：「您是要幫公司改名(帶走資料)，還是切換帳號？」，操作更符合直覺。
-    2. 🛠️ 核心功能保留：
-       - 保留 Excel 正規匯出 (.xlsx)、下拉選單分類、圖片壓縮等所有優化功能。
+    1. 📜 詳情頁捲動優化：
+       - 修改商品詳情頁結構，將圖片納入捲動區域。
+       - 現在往下滑動時，上方圖片會跟著捲走，不再固定擋住視線，增加可視空間。
+    2. 📉 版面調整：
+       - 將「銷售文案」區塊移至頁面最下方，讓更重要的價格與歷史紀錄優先顯示。
 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
@@ -569,7 +568,7 @@
 
             if (!user) return <><LoginScreen onLogin={handleLogin} onRegister={handleRegister} onGoogleLogin={handleGoogleLogin} onDemoLogin={handleDemoLogin} />{toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}</>;
             if (view === 'settings') return <SettingsView companyId={companyId} setCompanyId={setCompanyId} apiKey={apiKey} setApiKey={setApiKey} onClose={() => setView('list')} userEmail={user.email} isDarkMode={isDarkMode} toggleDarkMode={() => setIsDarkMode(!isDarkMode)} isDemoMode={isDemoMode} onSaveSettings={handleSettingsSave} />;
-            if (view === 'scan') return <><Scanner onScan={(code)=>{ setView('list'); if (scanCallback==='edit') { setCurrentProduct(p=>({...p, barcode:code})); setView('edit'); } else { const found = products.find(p=>p.barcode===code); if(found){ setCurrentProduct(found); setView('detail'); } else if(confirm('查無此商品，新增嗎？')) { setCurrentProduct({name:'', barcode:code, platforms:[{name:'蝦皮',price:''},{name:'FB',price:''},{name:'現場',price:''}], stock: 0, customFields:[], category: ''}); setView('edit'); } } setScanCallback(null); }} onClose={() => setView(scanCallback === 'edit' ? 'edit' : 'list')} />{toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}</>;
+            if (view === 'scan') return <><Scanner onScan={(code)=>{ setView('list'); if (scanCallback==='edit') { setCurrentProduct(p=>({...p, barcode:code})); setView('edit'); } else { const found = products.find(p=>p.barcode===code); if(found){ setCurrentProduct(found); setView('detail'); } else if(confirm('查無此商品，新增嗎？')) { setCurrentProduct({name:'', barcode:code, platforms:[{name:'蝦皮',price:''},{name:'FB',price:''},{name:'現場',price:''}], stock: '', customFields:[], salesHistory: [], category: ''}); setView('edit'); } } setScanCallback(null); }} onClose={() => setView(scanCallback === 'edit' ? 'edit' : 'list')} />{toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}</>;
 
             return (
                 <div className="min-h-screen pb-24 bg-gray-100 dark:bg-slate-900 transition-colors duration-300">
@@ -633,55 +632,60 @@
                     {/* Detail View */}
                     {view === 'detail' && currentProduct && (
                         <div className="fixed inset-0 z-40 bg-gray-50 dark:bg-slate-900 flex flex-col justify-center items-center md:bg-black/60 md:backdrop-blur-sm p-0 md:p-6">
-                           <div className="w-full h-full md:w-full md:max-w-4xl md:h-[85vh] bg-white dark:bg-slate-800 md:rounded-2xl shadow-2xl flex flex-col overflow-hidden relative">
-                                <div className="w-full h-64 md:h-72 bg-gray-100 dark:bg-slate-700 relative flex-shrink-0 group">
-                                    <img src={currentProduct.image} className="w-full h-full object-cover" />
-                                    <button onClick={()=>setView('list')} className="absolute top-4 left-4 p-2 bg-white/90 dark:bg-slate-800/90 dark:text-white hover:bg-white dark:hover:bg-slate-800 rounded-full shadow-sm transition-all"><ArrowLeft /></button>
-                                    <button onClick={()=>setView('edit')} className="absolute top-4 right-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg font-bold text-sm transition-colors">編輯</button>
-                                </div>
-                                <div className="p-6 md:p-8 flex-1 overflow-y-auto modal-scroll">
-                                    <h1 className="text-2xl md:text-3xl font-bold mb-2 text-gray-800 dark:text-white">{currentProduct.name}</h1>
-                                    <div className="flex gap-2 text-gray-500 dark:text-slate-400 mb-6 items-center">
-                                        <Barcode /> <span className="font-mono text-lg">{currentProduct.barcode}</span>
-                                        <span className={`text-xs px-2 py-1 rounded-full flex items-center gap-1 font-bold ${currentProduct.stock > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}><Archive size={12}/> 庫存: {currentProduct.stock || 0}</span>
-                                        {currentProduct.category && <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-300 rounded-full flex items-center gap-1"><Tag size={12}/>{currentProduct.category}</span>}
+                           <div className="w-full h-full md:w-full md:max-w-4xl md:h-[85vh] bg-white dark:bg-slate-800 md:rounded-2xl shadow-2xl overflow-hidden relative">
+                                <div className="h-full overflow-y-auto modal-scroll">
+                                    <div className="w-full h-64 md:h-72 bg-gray-100 dark:bg-slate-700 relative group">
+                                        <img src={currentProduct.image} className="w-full h-full object-cover" />
+                                        <button onClick={()=>setView('list')} className="absolute top-4 left-4 p-2 bg-white/90 dark:bg-slate-800/90 dark:text-white hover:bg-white dark:hover:bg-slate-800 rounded-full shadow-sm transition-all"><ArrowLeft /></button>
+                                        <button onClick={()=>setView('edit')} className="absolute top-4 right-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg font-bold text-sm transition-colors">編輯</button>
                                     </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="space-y-6">
-                                            {/* AI Sales Strategy Section */}
-                                            <div className="bg-indigo-50 dark:bg-indigo-900/20 p-5 rounded-xl border border-indigo-100 dark:border-indigo-800">
-                                                <div className="flex justify-between items-center mb-3">
-                                                    <h3 className="text-sm font-bold text-indigo-700 dark:text-indigo-300 uppercase flex items-center gap-2"><Brain size={16}/> AI 銷售顧問</h3>
-                                                    <button onClick={handleAISalesStrategy} disabled={aiLoading} className={`text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-full flex items-center gap-1 transition-all shadow-sm ${aiLoading?'opacity-70 cursor-wait':''}`}>
-                                                        <Sparkles size={12}/> {aiLoading ? '分析中...' : (currentProduct.aiAnalysis ? '重新分析' : '生成策略')}
-                                                    </button>
-                                                </div>
-                                                {currentProduct.aiAnalysis ? (
-                                                    <div className="prose prose-sm dark:prose-invert max-w-none text-gray-700 dark:text-slate-300 text-sm leading-relaxed" dangerouslySetInnerHTML={{__html: marked.parse(currentProduct.aiAnalysis)}}></div>
-                                                ) : (
-                                                    <div className="text-center py-6 text-gray-400 dark:text-slate-500 text-sm">
-                                                        <Brain size={32} className="mx-auto mb-2 opacity-30"/>
-                                                        <p>點擊按鈕，讓 AI 為此商品<br/>量身打造銷售策略</p>
-                                                    </div>
-                                                )}
-                                            </div>
-                                            
-                                            <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-xl">
-                                                <h3 className="text-xs font-bold text-orange-600 dark:text-orange-300 uppercase mb-3 flex items-center gap-2"><Clock size={14}/> 歷史銷售紀錄</h3>
-                                                {(currentProduct.salesHistory && currentProduct.salesHistory.length > 0) ? (
-                                                    <div className="space-y-3">
-                                                        {currentProduct.salesHistory.map((h, i) => (
-                                                            <div key={i} className="flex justify-between items-center border-b border-orange-200 dark:border-orange-800 pb-2 last:border-0 last:pb-0">
-                                                                <div><div className="text-xs text-orange-500 dark:text-orange-400">{h.date}</div>{h.note && <div className="text-xs text-gray-500 dark:text-slate-400">{h.note}</div>}</div>
-                                                                <div className="font-bold text-orange-900 dark:text-orange-100 text-lg">${h.price}</div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                ) : <div>{currentProduct.lastSoldPrice ? <div className="flex justify-between font-bold text-orange-900 dark:text-orange-100 text-lg"><span>舊紀錄售價</span><span>${currentProduct.lastSoldPrice}</span></div> : <div className="text-sm text-gray-400 dark:text-slate-500 text-center py-2">暫無銷售紀錄</div>}</div>}
-                                            </div>
-                                            {currentProduct.description && <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-xl"><h3 className="text-xs font-bold text-purple-600 dark:text-purple-300 uppercase mb-2">銷售文案</h3><div className="text-sm text-gray-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">{currentProduct.description}</div></div>}
+                                    <div className="p-6 md:p-8">
+                                        <h1 className="text-2xl md:text-3xl font-bold mb-2 text-gray-800 dark:text-white">{currentProduct.name}</h1>
+                                        <div className="flex gap-2 text-gray-500 dark:text-slate-400 mb-6 items-center">
+                                            <Barcode /> <span className="font-mono text-lg">{currentProduct.barcode}</span>
+                                            <span className={`text-xs px-2 py-1 rounded-full flex items-center gap-1 font-bold ${currentProduct.stock > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}><Archive size={12}/> 庫存: {currentProduct.stock || 0}</span>
+                                            {currentProduct.category && <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-300 rounded-full flex items-center gap-1"><Tag size={12}/>{currentProduct.category}</span>}
                                         </div>
-                                        <div className="space-y-4"><h3 className="font-bold text-gray-700 dark:text-slate-300">平台價格</h3><div className="grid grid-cols-2 gap-3">{(currentProduct.platforms||[]).map((p,i)=> (<div key={i} className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl text-center border border-blue-100 dark:border-blue-800"><div className="text-blue-600 dark:text-blue-300 font-bold text-sm mb-1">{p.name}</div><div className="text-xl font-bold text-gray-800 dark:text-white">${p.price}</div></div>))}</div></div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div className="space-y-6">
+                                                {/* AI Sales Strategy Section */}
+                                                <div className="bg-indigo-50 dark:bg-indigo-900/20 p-5 rounded-xl border border-indigo-100 dark:border-indigo-800">
+                                                    <div className="flex justify-between items-center mb-3">
+                                                        <h3 className="text-sm font-bold text-indigo-700 dark:text-indigo-300 uppercase flex items-center gap-2"><Brain size={16}/> AI 銷售顧問</h3>
+                                                        <button onClick={handleAISalesStrategy} disabled={aiLoading} className={`text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-full flex items-center gap-1 transition-all shadow-sm ${aiLoading?'opacity-70 cursor-wait':''}`}>
+                                                            <Sparkles size={12}/> {aiLoading ? '分析中...' : (currentProduct.aiAnalysis ? '重新分析' : '生成策略')}
+                                                        </button>
+                                                    </div>
+                                                    {currentProduct.aiAnalysis ? (
+                                                        <div className="prose prose-sm dark:prose-invert max-w-none text-gray-700 dark:text-slate-300 text-sm leading-relaxed" dangerouslySetInnerHTML={{__html: marked.parse(currentProduct.aiAnalysis)}}></div>
+                                                    ) : (
+                                                        <div className="text-center py-6 text-gray-400 dark:text-slate-500 text-sm">
+                                                            <Brain size={32} className="mx-auto mb-2 opacity-30"/>
+                                                            <p>點擊按鈕，讓 AI 為此商品<br/>量身打造銷售策略</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                
+                                                <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-xl">
+                                                    <h3 className="text-xs font-bold text-orange-600 dark:text-orange-300 uppercase mb-3 flex items-center gap-2"><Clock size={14}/> 歷史銷售紀錄</h3>
+                                                    {(currentProduct.salesHistory && currentProduct.salesHistory.length > 0) ? (
+                                                        <div className="space-y-3">
+                                                            {currentProduct.salesHistory.map((h, i) => (
+                                                                <div key={i} className="flex justify-between items-center border-b border-orange-200 dark:border-orange-800 pb-2 last:border-0 last:pb-0">
+                                                                    <div><div className="text-xs text-orange-500 dark:text-orange-400">{h.date}</div>{h.note && <div className="text-xs text-gray-500 dark:text-slate-400">{h.note}</div>}</div>
+                                                                    <div className="font-bold text-orange-900 dark:text-orange-100 text-lg">${h.price}</div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    ) : <div>{currentProduct.lastSoldPrice ? <div className="flex justify-between font-bold text-orange-900 dark:text-orange-100 text-lg"><span>舊紀錄售價</span><span>${currentProduct.lastSoldPrice}</span></div> : <div className="text-sm text-gray-400 dark:text-slate-500 text-center py-2">暫無銷售紀錄</div>}</div>}
+                                                </div>
+                                            </div>
+                                            <div className="space-y-4">
+                                                <h3 className="font-bold text-gray-700 dark:text-slate-300">平台價格</h3>
+                                                <div className="grid grid-cols-2 gap-3">{(currentProduct.platforms||[]).map((p,i)=> (<div key={i} className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl text-center border border-blue-100 dark:border-blue-800"><div className="text-blue-600 dark:text-blue-300 font-bold text-sm mb-1">{p.name}</div><div className="text-xl font-bold text-gray-800 dark:text-white">${p.price}</div></div>))}</div>
+                                            </div>
+                                        </div>
+                                        {currentProduct.description && <div className="mt-6 bg-purple-50 dark:bg-purple-900/20 p-4 rounded-xl"><h3 className="text-xs font-bold text-purple-600 dark:text-purple-300 uppercase mb-2">銷售文案</h3><div className="text-sm text-gray-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">{currentProduct.description}</div></div>}
                                     </div>
                                 </div>
                            </div>
