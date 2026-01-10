@@ -370,22 +370,37 @@
             const handleRenameCategory = async (oldName, newName) => { if (!newName || newName === oldName) return; if (!confirm(`確定要將「${oldName}」全部改名為「${newName}」嗎？`)) return; if (manualCats.includes(oldName)) { const updated = manualCats.map(c => c === oldName ? newName : c); setManualCats(updated); localStorage.setItem('inventory_custom_cats', JSON.stringify(updated)); } const affectedProducts = products.filter(p => p.category === oldName); if (affectedProducts.length > 0) { setLoading(true); try { if (isConfigured && !isDemoMode) { const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app'; let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products'); const batch = db.batch(); affectedProducts.forEach(p => { batch.update(ref.doc(p.id), { category: newName }); }); await batch.commit(); } else { const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`; affectedProducts.forEach(p => { LocalDB.update(collection, p.id, { ...p, category: newName }); }); setProducts(LocalDB.getAll(collection)); } showToast(`已更新 ${affectedProducts.length} 個商品的分類`, "success"); } catch(e) { showToast("更新失敗", "error"); } setLoading(false); } };
             const handleDeleteCategory = async (catName) => { if (!confirm(`確定要刪除「${catName}」分類嗎？`)) return; if (manualCats.includes(catName)) { const updated = manualCats.filter(c => c !== catName); setManualCats(updated); localStorage.setItem('inventory_custom_cats', JSON.stringify(updated)); } const affectedProducts = products.filter(p => p.category === catName); if (affectedProducts.length > 0) { setLoading(true); try { if (isConfigured && !isDemoMode) { const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app'; let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products'); const batch = db.batch(); affectedProducts.forEach(p => { batch.update(ref.doc(p.id), { category: '' }); }); await batch.commit(); } else { const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`; affectedProducts.forEach(p => { LocalDB.update(collection, p.id, { ...p, category: '' }); }); setProducts(LocalDB.getAll(collection)); } showToast(`已移除分類連結`, "success"); } catch(e) { showToast("刪除失敗", "error"); } setLoading(false); } else { showToast("已刪除分類標籤", "success"); } };
 
-            // Export CSV Logic (Re-implemented)
+            // Export CSV Logic (Updated: Remove AI/Desc, Add Platform/History)
             const handleExportCSV = () => {
                 if (products.length === 0) return showToast("沒有資料可匯出", "error");
-                const headers = ["商品名稱", "條碼", "分類", "庫存", "銷售文案", "AI分析", "最新售價"];
+                
+                // 定義標題：移除文案/AI，加入平台價格、日期、歷史紀錄
+                const headers = ["商品名稱", "條碼", "分類", "庫存", "各平台價格", "最新成交日期", "最新成交價", "歷史成交紀錄"];
+                
                 const rows = products.map(p => {
-                    const price = (p.salesHistory && p.salesHistory.length > 0) ? p.salesHistory[0].price : (p.lastSoldPrice || 0);
+                    // 處理平台價格字串 (例如: 蝦皮: $100 | FB: $90)
+                    const platformStr = (p.platforms || []).map(pl => `${pl.name}: $${pl.price}`).join(" | ");
+                    
+                    // 處理銷售紀錄
+                    const hasHistory = p.salesHistory && p.salesHistory.length > 0;
+                    const latestDate = hasHistory ? p.salesHistory[0].date : "-";
+                    const latestPrice = hasHistory ? p.salesHistory[0].price : (p.lastSoldPrice || 0);
+                    
+                    // 完整歷史字串
+                    const historyStr = (p.salesHistory || []).map(h => `${h.date}: $${h.price}${h.note ? '('+h.note+')' : ''}`).join(" | ");
+
                     return [
                         `"${(p.name || '').replace(/"/g, '""')}"`,
                         `"${(p.barcode || '')}"`,
                         `"${(p.category || '')}"`,
                         p.stock || 0,
-                        `"${(p.description || '').replace(/"/g, '""').replace(/\n/g, ' ')}"`,
-                        `"${(p.aiAnalysis || '').replace(/"/g, '""').replace(/\n/g, ' ')}"`,
-                        price
+                        `"${platformStr.replace(/"/g, '""')}"`,
+                        `"${latestDate}"`,
+                        latestPrice,
+                        `"${historyStr.replace(/"/g, '""')}"`
                     ].join(",");
                 });
+                
                 const csvContent = "\uFEFF" + [headers.join(","), ...rows].join("\n");
                 const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
                 const url = URL.createObjectURL(blob);
