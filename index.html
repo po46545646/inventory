@@ -379,7 +379,33 @@
 
             const handleAddHistory = () => { if(!newHistory.price) return showToast("請輸入售價", "error"); const historyItem = { ...newHistory, id: Date.now() }; const updatedHistory = [historyItem, ...(currentProduct.salesHistory || [])].sort((a, b) => new Date(b.date) - new Date(a.date)); setCurrentProduct({ ...currentProduct, salesHistory: updatedHistory }); setNewHistory({ date: new Date().toISOString().split('T')[0], price: '', note: '' }); showToast("已加入紀錄", "success"); };
             
-            const handleSave = async () => { if (!currentProduct.name) return showToast("請輸入名稱", "error"); setLoading(true); try { const editorName = user.displayName || user.email || 'user_' + user.uid.slice(0,5); const data = { ...currentProduct, lastEditor: editorName }; if (isConfigured && !isDemoMode) { const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app'; let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products'); if (data.companyId === undefined && companyId) data.companyId = companyId; data.timestamp = firebase.firestore.FieldValue.serverTimestamp(); if (currentProduct.id) await ref.doc(currentProduct.id).update(data); else await ref.add(data); } else { const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`; if (currentProduct.id) LocalDB.update(collection, currentProduct.id, data); else LocalDB.add(collection, data); setProducts(LocalDB.getAll(collection)); } showToast("儲存成功", "success"); setView('list'); setCurrentProduct(null); } catch (e) { console.error(e); showToast("儲存失敗", "error"); } setLoading(false); };
+            const handleSave = async () => { 
+                if (!currentProduct.name) return showToast("請輸入名稱", "error"); 
+                setLoading(true); 
+                try { 
+                    const editorName = user.displayName || user.email || 'user_' + user.uid.slice(0,5); 
+                    const data = { ...currentProduct, lastEditor: editorName }; 
+                    
+                    // Parse stock, handle empty string as 0
+                    data.stock = data.stock === '' ? 0 : parseInt(data.stock);
+
+                    if (isConfigured && !isDemoMode) { 
+                        const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app'; 
+                        let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products'); 
+                        if (data.companyId === undefined && companyId) data.companyId = companyId; 
+                        data.timestamp = firebase.firestore.FieldValue.serverTimestamp(); 
+                        if (currentProduct.id) await ref.doc(currentProduct.id).update(data); else await ref.add(data); 
+                    } else { 
+                        const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`; 
+                        if (currentProduct.id) LocalDB.update(collection, currentProduct.id, data); else LocalDB.add(collection, data); 
+                        setProducts(LocalDB.getAll(collection)); 
+                    } 
+                    showToast("儲存成功", "success"); 
+                    setView('list'); 
+                    setCurrentProduct(null); 
+                } catch (e) { console.error(e); showToast("儲存失敗", "error"); } 
+                setLoading(false); 
+            };
             const handleDelete = async (id) => { if (!confirm("確定刪除？")) return; try { if (isConfigured && !isDemoMode) { const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app'; let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products'); await ref.doc(id).delete(); } else { const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`; LocalDB.delete(collection, id); setProducts(LocalDB.getAll(collection)); } showToast("已刪除"); setView('list'); } catch(e) { showToast("刪除失敗", "error"); } };
             
             // New Migrate Function Integrated into Settings Save
@@ -602,7 +628,7 @@
                         </div>
                     </div>
 
-                    <button onClick={() => { setCurrentProduct({name:'', barcode:generateRandomBarcode(), platforms:[{name:'蝦皮',price:''},{name:'FB',price:''},{name:'現場',price:''}], stock: 0, customFields:[], salesHistory: [], category: ''}); setView('edit'); }} className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 text-white w-14 h-14 rounded-full shadow-xl flex items-center justify-center z-30 transition-transform active:scale-95"><Plus size={28} /></button>
+                    <button onClick={() => { setCurrentProduct({name:'', barcode:generateRandomBarcode(), platforms:[{name:'蝦皮',price:''},{name:'FB',price:''},{name:'現場',price:''}], stock: '', customFields:[], salesHistory: [], category: ''}); setView('edit'); }} className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 text-white w-14 h-14 rounded-full shadow-xl flex items-center justify-center z-30 transition-transform active:scale-95"><Plus size={28} /></button>
                     
                     {/* Detail View */}
                     {view === 'detail' && currentProduct && (
@@ -702,7 +728,7 @@
                                                         <label className="text-xs font-bold text-gray-500 dark:text-slate-400 uppercase ml-1">庫存數量 (Stock)</label>
                                                         <div className="relative">
                                                             <Archive className="absolute left-3 top-3 text-gray-400" size={18}/>
-                                                            <input type="number" value={currentProduct.stock || 0} onChange={e => setCurrentProduct({...currentProduct, stock: parseInt(e.target.value) || 0})} className="w-full pl-10 p-3 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 dark:text-white focus:border-blue-500 rounded-lg outline-none" placeholder="0" />
+                                                            <input type="number" value={currentProduct.stock} onChange={e => setCurrentProduct({...currentProduct, stock: e.target.value === '' ? '' : parseInt(e.target.value)})} className="w-full pl-10 p-3 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 dark:text-white focus:border-blue-500 rounded-lg outline-none" placeholder="0" />
                                                         </div>
                                                     </div>
                                                 </div>
