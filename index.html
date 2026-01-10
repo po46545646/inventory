@@ -1,13 +1,14 @@
 <!-- 
     =======================================================
-    🚀 掌上庫存系統 v3.18.1 (Excel 含圖片匯出版)
+    🚀 掌上庫存系統 v3.18.2 (純文字格式優化版)
     =======================================================
     
     更新說明：
-    1. 📸 升級「匯出 Excel」功能：
-       - 改用 .xls 格式，支援將商品圖片直接嵌入表格中。
-       - 自動調整欄位格式，解決條碼變成科學記號的問題。
-       - 保持「各平台價格自動分欄」的整齊設計。
+    1. ↩️ 移除圖片匯出功能：應要求移除圖片欄位，避免顯示問題。
+    2. ✨ 保留格式優化：
+       - 繼續使用 .xls 格式，確保表格排版整齊。
+       - 條碼欄位強制為文字格式，解決科學記號 (4.71E+12) 問題。
+       - 各平台價格依然自動獨立分欄。
 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
@@ -413,7 +414,6 @@
                 <table>
                 <thead>
                     <tr>
-                        <th>商品圖片</th>
                         <th>商品名稱</th>
                         <th>條碼 (Barcode)</th>
                         <th>分類</th>
@@ -438,13 +438,8 @@
                     const latestPrice = hasHistory ? p.salesHistory[0].price : (p.lastSoldPrice || 0);
                     const historyStr = (p.salesHistory || []).map(h => `${h.date}: $${h.price}${h.note ? '('+h.note+')' : ''}`).join(" | ");
 
-                    const imageCell = p.image 
-                        ? `<img src="${p.image}" width="80" height="80" style="object-fit: cover;">` 
-                        : "無圖片";
-
                     tableHTML += `
                     <tr>
-                        <td>${imageCell}</td>
                         <td class="text-cell">${(p.name || '')}</td>
                         <td class="text-cell">${(p.barcode || '')}</td>
                         <td class="text-cell">${(p.category || '')}</td>
@@ -473,7 +468,7 @@
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
-                showToast("匯出 Excel (含圖片) 成功！", "success");
+                showToast("匯出 Excel (優化版) 成功！", "success");
             };
 
             const filteredProducts = products.filter(p => {
@@ -494,7 +489,7 @@
                                 <h1 className="text-2xl font-bold flex items-center gap-2">庫存 {companyId && <span className="text-xs bg-blue-800 dark:bg-slate-700 px-2 py-1 rounded ml-2 hidden md:inline-block">{companyId}</span>}</h1>
                                 {companyId && <span className="text-xs bg-blue-800 dark:bg-slate-700 px-2 py-1 rounded ml-2 md:hidden">{companyId}</span>}
                                 <div className="flex gap-2">
-                                    <button onClick={handleExportExcel} className="p-2 hover:bg-blue-700 dark:hover:bg-slate-600 rounded-full transition-colors flex items-center gap-1" title="匯出 Excel (含圖片)">
+                                    <button onClick={handleExportExcel} className="p-2 hover:bg-blue-700 dark:hover:bg-slate-600 rounded-full transition-colors flex items-center gap-1" title="匯出 Excel (優化版)">
                                         <Download size={24} /> <span className="text-xs font-bold hidden md:inline">匯出Excel</span>
                                     </button>
                                     <button onClick={() => setView('settings')} className="p-2 hover:bg-blue-700 dark:hover:bg-slate-600 rounded-full transition-colors"><Settings size={24} /></button>
