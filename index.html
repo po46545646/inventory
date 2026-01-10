@@ -1,13 +1,13 @@
 <!-- 
     =======================================================
-    🚀 掌上庫存系統 v3.18 (Excel 欄位優化版)
+    🚀 掌上庫存系統 v3.18.1 (Excel 含圖片匯出版)
     =======================================================
     
     更新說明：
-    1. 📊 強化「匯出 Excel」功能：
-       - 解決「擠在一起」的問題。
-       - 自動將不同平台 (如: 蝦皮、FB、現場) 的價格**拆分成獨立欄位**。
-       - 讓 Excel 表格更整齊，方便進行加總或篩選分析。
+    1. 📸 升級「匯出 Excel」功能：
+       - 改用 .xls 格式，支援將商品圖片直接嵌入表格中。
+       - 自動調整欄位格式，解決條碼變成科學記號的問題。
+       - 保持「各平台價格自動分欄」的整齊設計。
 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
@@ -368,11 +368,11 @@
             const handleRenameCategory = async (oldName, newName) => { if (!newName || newName === oldName) return; if (!confirm(`確定要將「${oldName}」全部改名為「${newName}」嗎？`)) return; if (manualCats.includes(oldName)) { const updated = manualCats.map(c => c === oldName ? newName : c); setManualCats(updated); localStorage.setItem('inventory_custom_cats', JSON.stringify(updated)); } const affectedProducts = products.filter(p => p.category === oldName); if (affectedProducts.length > 0) { setLoading(true); try { if (isConfigured && !isDemoMode) { const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app'; let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products'); const batch = db.batch(); affectedProducts.forEach(p => { batch.update(ref.doc(p.id), { category: newName }); }); await batch.commit(); } else { const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`; affectedProducts.forEach(p => { LocalDB.update(collection, p.id, { ...p, category: newName }); }); setProducts(LocalDB.getAll(collection)); } showToast(`已更新 ${affectedProducts.length} 個商品的分類`, "success"); } catch(e) { showToast("更新失敗", "error"); } setLoading(false); } };
             const handleDeleteCategory = async (catName) => { if (!confirm(`確定要刪除「${catName}」分類嗎？`)) return; if (manualCats.includes(catName)) { const updated = manualCats.filter(c => c !== catName); setManualCats(updated); localStorage.setItem('inventory_custom_cats', JSON.stringify(updated)); } const affectedProducts = products.filter(p => p.category === catName); if (affectedProducts.length > 0) { setLoading(true); try { if (isConfigured && !isDemoMode) { const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app'; let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products'); const batch = db.batch(); affectedProducts.forEach(p => { batch.update(ref.doc(p.id), { category: '' }); }); await batch.commit(); } else { const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`; affectedProducts.forEach(p => { LocalDB.update(collection, p.id, { ...p, category: '' }); }); setProducts(LocalDB.getAll(collection)); } showToast(`已移除分類連結`, "success"); } catch(e) { showToast("刪除失敗", "error"); } setLoading(false); } else { showToast("已刪除分類標籤", "success"); } };
 
-            // Export CSV Logic (New Logic: Separate Columns)
-            const handleExportCSV = () => {
+            // Export Excel Logic (New Logic: HTML to XLS with Images)
+            const handleExportExcel = () => {
                 if (products.length === 0) return showToast("沒有資料可匯出", "error");
 
-                // 1. 蒐集所有出現過的平台名稱 (例如: 蝦皮, FB, 現場)
+                // 1. 蒐集所有出現過的平台名稱
                 const allPlatformNames = new Set();
                 products.forEach(p => {
                     if (p.platforms) {
@@ -381,58 +381,99 @@
                         });
                     }
                 });
-                // 排序平台名稱，確保欄位順序固定
                 const platformHeaders = Array.from(allPlatformNames).sort();
 
-                // 2. 定義標題：加入動態平台欄位
-                const headers = [
-                    "商品名稱", 
-                    "條碼", 
-                    "分類", 
-                    "庫存", 
-                    ...platformHeaders.map(name => `價格(${name})`), // 動態加入平台欄位
-                    "最新成交日期", 
-                    "最新成交價", 
-                    "歷史成交紀錄 (完整)"
-                ];
+                // 2. 建構 HTML 表格
+                let tableHTML = `
+                <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+                <head>
+                <meta http-equiv="content-type" content="application/vnd.ms-excel; charset=UTF-8">
+                <!--[if gte mso 9]>
+                <xml>
+                <x:ExcelWorkbook>
+                <x:ExcelWorksheets>
+                <x:ExcelWorksheet>
+                <x:Name>庫存清單</x:Name>
+                <x:WorksheetOptions>
+                <x:DisplayGridlines/>
+                </x:WorksheetOptions>
+                </x:ExcelWorksheet>
+                </x:ExcelWorksheets>
+                </x:ExcelWorkbook>
+                </xml>
+                <![endif]-->
+                <style>
+                    table { border-collapse: collapse; width: 100%; }
+                    th, td { border: 1px solid #000000; padding: 8px; text-align: center; vertical-align: middle; height: 60px; }
+                    th { background-color: #f0f0f0; font-weight: bold; }
+                    .text-cell { mso-number-format:"\\@"; } /* 強制文字格式 */
+                </style>
+                </head>
+                <body>
+                <table>
+                <thead>
+                    <tr>
+                        <th>商品圖片</th>
+                        <th>商品名稱</th>
+                        <th>條碼 (Barcode)</th>
+                        <th>分類</th>
+                        <th>庫存</th>
+                        ${platformHeaders.map(name => `<th>價格 (${name})</th>`).join('')}
+                        <th>最新成交日期</th>
+                        <th>最新成交價</th>
+                        <th>歷史成交紀錄 (完整)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                `;
 
-                const rows = products.map(p => {
-                    // 處理動態平台價格：檢查該商品是否有對應平台的價格
+                products.forEach(p => {
                     const platformPrices = platformHeaders.map(headerName => {
                         const found = (p.platforms || []).find(pl => pl.name === headerName);
-                        return found ? found.price : ""; // 有則填價格，無則留空
+                        return found ? found.price : ""; 
                     });
 
-                    // 處理銷售紀錄
                     const hasHistory = p.salesHistory && p.salesHistory.length > 0;
                     const latestDate = hasHistory ? p.salesHistory[0].date : "-";
                     const latestPrice = hasHistory ? p.salesHistory[0].price : (p.lastSoldPrice || 0);
-                    
-                    // 完整歷史字串 (將換行符號取代為空格，避免 CSV 格式錯亂)
                     const historyStr = (p.salesHistory || []).map(h => `${h.date}: $${h.price}${h.note ? '('+h.note+')' : ''}`).join(" | ");
 
-                    return [
-                        `"${(p.name || '').replace(/"/g, '""')}"`,
-                        `"${(p.barcode || '')}"`,
-                        `"${(p.category || '')}"`,
-                        p.stock || 0,
-                        ...platformPrices, // 展開平台價格到各個欄位
-                        `"${latestDate}"`,
-                        latestPrice,
-                        `"${historyStr.replace(/"/g, '""')}"`
-                    ].join(",");
+                    const imageCell = p.image 
+                        ? `<img src="${p.image}" width="80" height="80" style="object-fit: cover;">` 
+                        : "無圖片";
+
+                    tableHTML += `
+                    <tr>
+                        <td>${imageCell}</td>
+                        <td class="text-cell">${(p.name || '')}</td>
+                        <td class="text-cell">${(p.barcode || '')}</td>
+                        <td class="text-cell">${(p.category || '')}</td>
+                        <td>${p.stock || 0}</td>
+                        ${platformPrices.map(price => `<td>${price}</td>`).join('')}
+                        <td class="text-cell">${latestDate}</td>
+                        <td>${latestPrice}</td>
+                        <td>${historyStr}</td>
+                    </tr>
+                    `;
                 });
 
-                const csvContent = "\uFEFF" + [headers.join(","), ...rows].join("\n");
-                const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+                tableHTML += `
+                </tbody>
+                </table>
+                </body>
+                </html>
+                `;
+
+                // 3. 下載檔案
+                const blob = new Blob([tableHTML], { type: "application/vnd.ms-excel" });
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement("a");
                 link.href = url;
-                link.download = `inventory_export_${new Date().toISOString().slice(0,10)}.csv`;
+                link.download = `inventory_export_${new Date().toISOString().slice(0,10)}.xls`;
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
-                showToast("匯出成功！", "success");
+                showToast("匯出 Excel (含圖片) 成功！", "success");
             };
 
             const filteredProducts = products.filter(p => {
@@ -453,7 +494,9 @@
                                 <h1 className="text-2xl font-bold flex items-center gap-2">庫存 {companyId && <span className="text-xs bg-blue-800 dark:bg-slate-700 px-2 py-1 rounded ml-2 hidden md:inline-block">{companyId}</span>}</h1>
                                 {companyId && <span className="text-xs bg-blue-800 dark:bg-slate-700 px-2 py-1 rounded ml-2 md:hidden">{companyId}</span>}
                                 <div className="flex gap-2">
-                                    <button onClick={handleExportCSV} className="p-2 hover:bg-blue-700 dark:hover:bg-slate-600 rounded-full transition-colors" title="匯出 CSV"><Download size={24} /></button>
+                                    <button onClick={handleExportExcel} className="p-2 hover:bg-blue-700 dark:hover:bg-slate-600 rounded-full transition-colors flex items-center gap-1" title="匯出 Excel (含圖片)">
+                                        <Download size={24} /> <span className="text-xs font-bold hidden md:inline">匯出Excel</span>
+                                    </button>
                                     <button onClick={() => setView('settings')} className="p-2 hover:bg-blue-700 dark:hover:bg-slate-600 rounded-full transition-colors"><Settings size={24} /></button>
                                     <button onClick={handleLogout} className="p-2 hover:bg-blue-700 dark:hover:bg-slate-600 rounded-full transition-colors"><LogOut size={24} /></button>
                                 </div>
