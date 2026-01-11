@@ -1,24 +1,25 @@
 <!-- 
     =======================================================
-    🚀 掌上庫存系統 v3.18.16 (全域捲動體驗優化版)
+    🚀 掌上庫存系統 v3.20.0 (Excel 匯入特別版)
     =======================================================
     
     更新說明：
-    1. 🏠 主畫面優化：
-       - 移除頂部搜尋列的 `sticky` 屬性。現在往下滑動時，搜尋與分類列會跟著捲動消失，最大化商品列表的可視區域。
-    2. 📋 詳情頁導航優化：
-       - 將「返回」與「編輯」按鈕移出捲動區域，改為 `fixed` 懸浮定位。
-       - 即使照片捲動上去，按鈕依然停留在螢幕頂端，方便隨時操作。
-    3. ⚙️ 設定頁重構：
-       - 將設定頁面改為與編輯頁一致的「固定彈窗 (Fixed Modal)」結構。
-       - 標題列固定，內容區獨立捲動，解決手機上操作時版面跳動的問題。
+    1. 📥 新增 Excel 匯入功能：
+       - 支援 .xlsx 檔案上傳。
+       - 自動對應欄位：商品名稱、條碼、分類、庫存、售價(預設為現場價)、重量、描述。
+       - 自動防呆：若無條碼則自動生成，若無分類則設為預設值。
+    2. 📄 下載範本功能：
+       - 提供標準 Excel 格式範本下載，方便使用者整理資料。
+    3. ⚡ 流程優化：
+       - 匯入時會顯示成功筆數 Toast 提示。
+       - 匯入後自動切換至列表並刷新資料。
 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>掌上庫存系統</title>
+    <title>掌上庫存系統 v3.20</title>
     
     <!-- React & ReactDOM -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -55,7 +56,7 @@
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.0/dist/JsBarcode.all.min.js"></script>
     <!-- Markdown Parser for AI responses -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <!-- SheetJS for proper Excel export -->
+    <!-- SheetJS for proper Excel export/import -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
     <style>
@@ -126,7 +127,7 @@
             },
             add: (collection, item) => {
                 const items = LocalDB.getAll(collection);
-                const newItem = { ...item, id: 'local_' + Date.now(), timestamp: { seconds: Date.now() / 1000 } };
+                const newItem = { ...item, id: 'local_' + Date.now() + Math.random().toString(36).substr(2, 5), timestamp: { seconds: Date.now() / 1000 } };
                 items.unshift(newItem);
                 LocalDB.saveAll(collection, items);
                 return newItem;
@@ -151,6 +152,7 @@
             Camera: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>),
             Barcode: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 5v14"/><path d="M8 5v14"/><path d="M12 5v14"/><path d="M17 5v14"/><path d="M21 5v14"/></svg>),
             Plus: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>),
+            Minus: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="5" y1="12" x2="19" y2="12"/></svg>),
             Search: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>),
             ArrowLeft: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>),
             ImageIcon: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>),
@@ -159,6 +161,7 @@
             Sparkles: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>),
             Wand: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8 19 13"/><path d="M15 9h0"/><path d="M17.8 6.2 19 5"/><path d="m3 21 9-9"/><path d="M12.2 6.2 11 5"/></svg>),
             Download: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>),
+            Upload: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>),
             LogOut: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>),
             User: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>),
             Settings: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.35a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>),
@@ -174,9 +177,10 @@
             Brain: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12 16v-4"/><path d="M12 8h.01"/><path d="M20.8 10.2a5.5 5.5 0 0 0-8.8-7.2 5.5 5.5 0 0 0-8.8 7.2c-1.2 1.6-1.2 3.8 0 5.4a5.5 5.5 0 0 0 8.8 7.2 5.5 5.5 0 0 0 8.8-7.2c1.2-1.6 1.2-3.8 0-5.4Z"/></svg>),
             DollarSign: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>),
             Archive: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>),
-            Scale: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg>)
+            Scale: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg>),
+            Copy: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>)
         };
-        const { Camera, Barcode, Plus, Search, ArrowLeft, ImageIcon, X, AlertCircle, Sparkles, Wand, Download, LogOut, User, Settings, Users, Key, GoogleLogo, Moon, Calendar, Clock, Tag, Edit2, Trash2, Brain, DollarSign, Archive, Scale } = Icons;
+        const { Camera, Barcode, Plus, Minus, Search, ArrowLeft, ImageIcon, X, AlertCircle, Sparkles, Wand, Download, Upload, LogOut, User, Settings, Users, Key, GoogleLogo, Moon, Calendar, Clock, Tag, Edit2, Trash2, Brain, DollarSign, Archive, Scale, Copy } = Icons;
 
         // --- Utils & AI ---
         const callGemini = async (prompt, imageBase64 = null, apiKey = null) => {
@@ -262,14 +266,15 @@
             };
             const latestPrice = getLatestPrice();
             
-            // Stock Color Logic
+            // Stock Logic with visual Alert for low stock
             const stock = product.stock || 0;
+            const isLowStock = stock <= 3;
             const stockColor = stock > 0 
                 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' 
                 : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300';
 
             return (
-                <div onClick={onClick} className="bg-white dark:bg-slate-800 dark:border-slate-700 rounded-xl shadow-sm p-4 flex items-center gap-4 active:bg-gray-50 dark:active:bg-slate-700 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors cursor-pointer border border-gray-100 relative overflow-hidden h-full group">
+                <div onClick={onClick} className={`bg-white dark:bg-slate-800 dark:border-slate-700 rounded-xl shadow-sm p-4 flex items-center gap-4 active:bg-gray-50 dark:active:bg-slate-700 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors cursor-pointer border relative overflow-hidden h-full group ${isLowStock ? 'border-l-4 border-l-red-500 border-y-gray-100 border-r-gray-100' : 'border-gray-100'}`}>
                     {product.description && <div className="absolute top-0 right-0 w-3 h-3 bg-purple-400 rounded-bl-lg"></div>}
                     <div className="w-20 h-20 bg-gray-100 dark:bg-slate-700 rounded-lg flex-shrink-0 overflow-hidden relative group-hover:scale-105 transition-transform duration-300">
                         {product.image ? <img src={product.image} className="w-full h-full object-cover" /> : <ImageIcon className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500" size={24} />}
@@ -302,7 +307,6 @@
             );
         };
 
-        // ... (LoginScreen & SettingsView same as v3.16)
         const LoginScreen = ({ onLogin, onRegister, onGoogleLogin, onDemoLogin }) => {
             const [email, setEmail] = React.useState('');
             const [password, setPassword] = React.useState('');
@@ -315,6 +319,16 @@
         const SettingsView = ({ companyId, setCompanyId, onClose, userEmail, apiKey, setApiKey, isDarkMode, toggleDarkMode, isDemoMode, onSaveSettings }) => {
             const [tempId, setTempId] = React.useState(companyId || '');
             const [tempKey, setTempKey] = React.useState(apiKey || '');
+            
+            // Generate Template Function
+            const handleDownloadTemplate = () => {
+                const headers = ["商品名稱", "條碼", "分類", "庫存", "售價", "重量", "描述"];
+                const example = ["範例商品(可刪除)", "1234567890", "食品", "10", "150", "500g", "這是一個範例商品"];
+                const ws = XLSX.utils.aoa_to_sheet([headers, example]);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "匯入範本");
+                XLSX.writeFile(wb, "inventory_import_template.xlsx");
+            };
 
             return <div className="fixed inset-0 z-50 bg-gray-100 dark:bg-slate-900 flex flex-col items-center"><div className="w-full h-full max-w-2xl bg-white dark:bg-slate-800 shadow-2xl flex flex-col overflow-hidden"><div className="bg-white dark:bg-slate-800 p-4 shadow-sm flex items-center gap-3 border-b dark:border-slate-700 flex-shrink-0"><button onClick={onClose}><ArrowLeft/></button><h1 className="text-lg font-bold dark:text-white">設定</h1></div><div className="flex-1 overflow-y-auto modal-scroll p-6 space-y-6"><div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border dark:border-slate-700 flex justify-between items-center"><h2 className="text-sm font-bold dark:text-slate-200 flex items-center gap-2"><Moon size={16}/> 夜間模式</h2><button onClick={toggleDarkMode} className={`w-12 h-6 rounded-full p-1 transition-colors ${isDarkMode?'bg-blue-600':'bg-gray-300'}`}><div className={`w-4 h-4 bg-white rounded-full transform transition-transform ${isDarkMode?'translate-x-6':'translate-x-0'}`}></div></button></div><div className="p-4 rounded-xl shadow-sm border dark:border-slate-700"><h2 className="text-sm font-bold mb-4 flex items-center gap-2 dark:text-white"><User size={16}/> 帳號</h2><div className="text-lg font-medium dark:text-white">{userEmail}</div></div>
             
@@ -327,6 +341,14 @@
                     placeholder="例如：MyCoffeeShop"
                 />
                 <div className="mt-2 text-xs text-gray-400">您可以直接修改上方名稱來為商店改名，系統會詢問是否搬移資料。</div>
+            </div>
+            
+            <div className="p-4 rounded-xl shadow-sm border dark:border-slate-700">
+                <h2 className="text-sm font-bold mb-4 flex items-center gap-2 text-green-600"><Download size={16}/> 資料匯入範本</h2>
+                <p className="text-sm text-gray-600 dark:text-slate-300 mb-4">您可以下載標準 Excel 格式，整理好庫存後再回到首頁點擊右上角的「匯入」按鈕。</p>
+                <button onClick={handleDownloadTemplate} className="w-full py-2 bg-green-100 hover:bg-green-200 text-green-700 dark:bg-green-900/30 dark:text-green-300 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors">
+                    <Download size={18}/> 下載 Excel 範本
+                </button>
             </div>
 
             <div className="p-4 rounded-xl shadow-sm border dark:border-slate-700"><h2 className="text-sm font-bold mb-4 flex items-center gap-2 text-purple-600"><Key size={16}/> Gemini API (AI 功能)</h2><input type="password" value={tempKey} onChange={e=>setTempKey(e.target.value)} className="w-full p-3 bg-gray-50 dark:bg-slate-700 border rounded-lg dark:text-white" placeholder="AIzaSy..."/><p className="text-xs text-gray-500 mt-2">請貼上您的 Google Gemini API Key 以啟用 AI 功能。</p></div><button onClick={()=>{ onSaveSettings(tempId.trim(), tempKey.trim()); }} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg mb-8">儲存設定</button></div></div></div>;
@@ -381,7 +403,6 @@
             const handleAIPriceEstimate = async () => { if (!currentProduct.name) return showToast("請先輸入名稱", "error"); setAiLoading(true); try { const res = await callGemini(`商品：「${currentProduct.name}」。請根據一般台灣市場行情，提供一個合理的售價區間 (TWD)，並簡述理由(20字內)。請直接回傳純文字，例如：『建議 $500-$600，市場均價』。`, currentProduct.image, apiKey); alert(`💰 AI 估價建議：\n\n${res}`); } catch (e) { showToast("API Key 錯誤", "error"); } setAiLoading(false); };
             const handleAICategorySuggest = async () => { if (!currentProduct.name) return showToast("請先輸入名稱", "error"); setAiLoading(true); try { const res = await callGemini(`商品：「${currentProduct.name}」。請直接提供一個最適合的分類名稱(例如：3C、食品、服飾)，只回傳分類名稱，不要有標點符號。`, currentProduct.image, apiKey); setCurrentProduct(prev => ({ ...prev, category: res.trim() })); showToast(`已建議分類：${res.trim()}`, "magic"); } catch (e) { showToast("API Key 錯誤", "error"); } setAiLoading(false); };
 
-            // NEW: AI Label Scan (Name + Barcode + Weight)
             const handleAIScanLabel = async () => {
                 if (!currentProduct.barcodeImage) return showToast("請先上傳標籤照片", "error");
                 setAiLoading(true);
@@ -411,14 +432,49 @@
 
             const handleAddHistory = () => { if(!newHistory.price) return showToast("請輸入售價", "error"); const historyItem = { ...newHistory, id: Date.now() }; const updatedHistory = [historyItem, ...(currentProduct.salesHistory || [])].sort((a, b) => new Date(b.date) - new Date(a.date)); setCurrentProduct({ ...currentProduct, salesHistory: updatedHistory }); setNewHistory({ date: new Date().toISOString().split('T')[0], price: '', note: '' }); showToast("已加入紀錄", "success"); };
             
+            const updateProductField = async (id, fieldName, newValue) => {
+                const editorName = user.displayName || user.email || 'user_' + user.uid.slice(0,5);
+                const updates = { [fieldName]: newValue, lastEditor: editorName };
+                
+                try {
+                    if (isConfigured && !isDemoMode) {
+                        const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app';
+                        let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products');
+                        await ref.doc(id).update(updates);
+                    } else {
+                        const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`;
+                        LocalDB.update(collection, id, updates);
+                        setProducts(LocalDB.getAll(collection));
+                    }
+                    if (currentProduct && currentProduct.id === id) {
+                        setCurrentProduct(prev => ({...prev, [fieldName]: newValue}));
+                    }
+                    return true;
+                } catch (e) {
+                    console.error(e);
+                    showToast("更新失敗", "error");
+                    return false;
+                }
+            };
+
+            const handleQuickStockUpdate = async (delta) => {
+                if (!currentProduct) return;
+                const newStock = Math.max(0, (currentProduct.stock || 0) + delta);
+                const success = await updateProductField(currentProduct.id, 'stock', newStock);
+                if (success) showToast(`庫存更新：${newStock}`, "success");
+            };
+
+            const handleCopyText = (text, label) => {
+                if (!text) return;
+                navigator.clipboard.writeText(text).then(() => showToast(`已複製 ${label}`, "success")).catch(() => showToast("複製失敗", "error"));
+            };
+
             const handleSave = async () => { 
                 if (!currentProduct.name) return showToast("請輸入名稱", "error"); 
                 setLoading(true); 
                 try { 
                     const editorName = user.displayName || user.email || 'user_' + user.uid.slice(0,5); 
                     const data = { ...currentProduct, lastEditor: editorName }; 
-                    
-                    // Parse stock, handle empty string as 0
                     data.stock = data.stock === '' ? 0 : parseInt(data.stock);
 
                     if (isConfigured && !isDemoMode) { 
@@ -440,34 +496,17 @@
             };
             const handleDelete = async (id) => { if (!confirm("確定刪除？")) return; try { if (isConfigured && !isDemoMode) { const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app'; let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products'); await ref.doc(id).delete(); } else { const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`; LocalDB.delete(collection, id); setProducts(LocalDB.getAll(collection)); } showToast("已刪除"); setView('list'); } catch(e) { showToast("刪除失敗", "error"); } };
             
-            // New Migrate Function Integrated into Settings Save
             const handleSettingsSave = async (newId, newApiKey) => {
                 setApiKey(newApiKey);
-                
-                // Case 1: No change in ID
-                if (newId === companyId) {
-                    setView('list');
-                    return;
-                }
-
-                // Case 2: New ID is empty (switching to personal)
-                if (!newId) {
-                    setCompanyId('');
-                    setView('list');
-                    return;
-                }
-
-                // Case 3: ID Changed (and old ID existed) -> Ask for action
+                if (newId === companyId) { setView('list'); return; }
+                if (!newId) { setCompanyId(''); setView('list'); return; }
                 if (companyId) {
                     if (confirm(`您將商店名稱從「${companyId}」改為「${newId}」。\n\n請問您是要：\n[確定] 改名 (將舊資料搬移過去)\n[取消] 僅切換 (保留舊資料，只切換查看)`)) {
-                        // User chose "Rename" (Move Data)
                         await migrateData(companyId, newId);
                     } else {
-                        // User chose "Switch" (Just change ID)
                         setCompanyId(newId);
                     }
                 } else {
-                    // Case 4: From personal to Shop ID (Just set it)
                     setCompanyId(newId);
                 }
                 setView('list');
@@ -476,56 +515,35 @@
             const migrateData = async (oldId, newId) => {
                 setLoading(true);
                 try {
-                    // Firebase Mode
                     if (isConfigured && !isDemoMode) {
                         const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app';
                         let ref = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory');
-                        
-                        // 1. Fetch all items with old companyId
                         const snapshot = await ref.where('companyId', '==', oldId).get();
-                        
                         if (snapshot.empty) {
                             showToast("舊名稱下沒有資料可搬移", "info");
                             setCompanyId(newId);
                             setLoading(false);
                             return;
                         }
-
-                        // 2. Batch Update (Firestore limit: 500 ops per batch)
                         const batch = db.batch();
                         let count = 0;
                         snapshot.docs.forEach(doc => {
-                            if (count < 490) { // Safety buffer
-                                batch.update(doc.ref, { companyId: newId });
-                                count++;
-                            }
+                            if (count < 490) { batch.update(doc.ref, { companyId: newId }); count++; }
                         });
-                        
                         await batch.commit();
                         showToast(`成功改名並搬移 ${count} 筆資料！`, "success");
                     } else {
-                        // LocalDB Mode
                         const oldCollection = `shared_${oldId}`;
                         const newCollection = `shared_${newId}`;
-                        
                         const oldItems = LocalDB.getAll(oldCollection);
                         const newItems = LocalDB.getAll(newCollection);
-                        
-                        // Merge old items into new collection
                         const mergedItems = [...newItems, ...oldItems.map(item => ({...item, companyId: newId}))];
                         LocalDB.saveAll(newCollection, mergedItems);
-                        
-                        // Clear old collection
                         LocalDB.saveAll(oldCollection, []);
-                        
                         showToast(`成功改名 (本機)！`, "success");
                     }
-                    
                     setCompanyId(newId); 
-                } catch(e) {
-                    showToast("改名失敗: " + e.message, "error");
-                    console.error(e);
-                }
+                } catch(e) { showToast("改名失敗: " + e.message, "error"); console.error(e); }
                 setLoading(false);
             };
 
@@ -548,25 +566,17 @@
                             const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app'; 
                             let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products'); 
                             const batch = db.batch(); 
-                            affectedProducts.forEach(p => { 
-                                batch.update(ref.doc(p.id), { category: newName }); 
-                            }); 
+                            affectedProducts.forEach(p => { batch.update(ref.doc(p.id), { category: newName }); }); 
                             await batch.commit(); 
                         } else { 
                             const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`; 
-                            affectedProducts.forEach(p => { 
-                                LocalDB.update(collection, p.id, { ...p, category: newName }); 
-                            }); 
+                            affectedProducts.forEach(p => { LocalDB.update(collection, p.id, { ...p, category: newName }); }); 
                             setProducts(LocalDB.getAll(collection)); 
                         } 
                         showToast(`已將 ${affectedProducts.length} 個商品移至「${newName}」`, "success"); 
-                    } catch(e) { 
-                        showToast("更新失敗", "error"); 
-                    } 
+                    } catch(e) { showToast("更新失敗", "error"); } 
                     setLoading(false); 
-                } else {
-                    showToast("分類名稱已更新", "success");
-                }
+                } else { showToast("分類名稱已更新", "success"); }
             };
             
             const handleDeleteCategory = async (catName) => { if (!confirm(`確定要刪除「${catName}」分類嗎？`)) return; if (manualCats.includes(catName)) { const updated = manualCats.filter(c => c !== catName); setManualCats(updated); localStorage.setItem('inventory_custom_cats', JSON.stringify(updated)); } const affectedProducts = products.filter(p => p.category === catName); if (affectedProducts.length > 0) { setLoading(true); try { if (isConfigured && !isDemoMode) { const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app'; let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products'); const batch = db.batch(); affectedProducts.forEach(p => { batch.update(ref.doc(p.id), { category: '' }); }); await batch.commit(); } else { const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`; affectedProducts.forEach(p => { LocalDB.update(collection, p.id, { ...p, category: '' }); }); setProducts(LocalDB.getAll(collection)); } showToast(`已移除分類連結`, "success"); } catch(e) { showToast("刪除失敗", "error"); } setLoading(false); } else { showToast("已刪除分類標籤", "success"); } };
@@ -576,14 +586,14 @@
                 const allPlatformNames = new Set();
                 products.forEach(p => { if (p.platforms) { p.platforms.forEach(pl => { if (pl.name) allPlatformNames.add(pl.name); }); } });
                 const platformHeaders = Array.from(allPlatformNames).sort();
-                const headers = ["商品名稱", "條碼 (Barcode)", "分類", "庫存", "重量", ...platformHeaders.map(p => `價格 (${p})`), "最新成交日期", "最新成交價", "歷史成交紀錄"];
+                const headers = ["商品名稱", "條碼", "分類", "庫存", "重量", ...platformHeaders.map(p => `價格 (${p})`), "最新成交日期", "最新成交價", "歷史成交紀錄", "描述"];
                 const data = products.map(p => {
                     const platformPrices = platformHeaders.map(headerName => { const found = (p.platforms || []).find(pl => pl.name === headerName); return found ? found.price : ""; });
                     const hasHistory = p.salesHistory && p.salesHistory.length > 0;
                     const latestDate = hasHistory ? p.salesHistory[0].date : "-";
                     const latestPrice = hasHistory ? p.salesHistory[0].price : (p.lastSoldPrice || 0);
                     const historyStr = (p.salesHistory || []).map(h => `${h.date}: $${h.price}${h.note ? '('+h.note+')' : ''}`).join(" | ");
-                    return [p.name, p.barcode, p.category, p.stock, p.weight || '', ...platformPrices, latestDate, latestPrice, historyStr];
+                    return [p.name, p.barcode, p.category, p.stock, p.weight || '', ...platformPrices, latestDate, latestPrice, historyStr, p.description || ''];
                 });
                 const wsData = [headers, ...data];
                 const ws = XLSX.utils.aoa_to_sheet(wsData);
@@ -591,6 +601,105 @@
                 XLSX.utils.book_append_sheet(wb, ws, "庫存清單");
                 XLSX.writeFile(wb, `inventory_export_${new Date().toISOString().slice(0,10)}.xlsx`);
                 showToast("匯出 Excel (.xlsx) 成功！", "success");
+            };
+            
+            // --- Excel Import Logic ---
+            const handleImportExcel = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = async (evt) => {
+                    setLoading(true);
+                    try {
+                        const bstr = evt.target.result;
+                        const wb = XLSX.read(bstr, {type:'binary'});
+                        const wsname = wb.SheetNames[0];
+                        const ws = wb.Sheets[wsname];
+                        const data = XLSX.utils.sheet_to_json(ws);
+                        
+                        if (data.length === 0) {
+                            showToast("Excel 檔案內容為空", "error");
+                            setLoading(false);
+                            return;
+                        }
+
+                        // Map data to product structure
+                        const newProducts = data.map(row => {
+                            // Helper to find key case-insensitively or by common names
+                            const getVal = (keys) => {
+                                for (const k of keys) {
+                                    if (row[k] !== undefined) return row[k];
+                                }
+                                return null;
+                            };
+
+                            const name = getVal(['商品名稱', 'Name', '品名', '名稱']) || '未命名商品';
+                            const barcode = getVal(['條碼', 'Barcode', 'barcode']) || generateRandomBarcode();
+                            const category = getVal(['分類', 'Category', '類別']) || '未分類';
+                            const stock = parseInt(getVal(['庫存', 'Stock', '數量']) || 0);
+                            const price = getVal(['售價', 'Price', '價格', '單價']);
+                            const weight = getVal(['重量', 'Weight']) || '';
+                            const desc = getVal(['描述', 'Description', '備註']) || '';
+
+                            const platforms = [];
+                            if (price) {
+                                platforms.push({ name: '現場', price: price });
+                            }
+
+                            return {
+                                name,
+                                barcode: String(barcode),
+                                category,
+                                stock,
+                                weight: String(weight),
+                                description: String(desc),
+                                platforms,
+                                salesHistory: [],
+                                customFields: [],
+                                companyId: companyId || undefined,
+                                timestamp: { seconds: Date.now() / 1000 }, // Fallback for local
+                                lastEditor: user.displayName || 'Import'
+                            };
+                        });
+
+                        // Batch Save Logic
+                        let successCount = 0;
+                        if (isConfigured && !isDemoMode) {
+                            // Firestore Batch (Chunking by 400 to be safe)
+                            const chunkSize = 400;
+                            const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app';
+                            let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products');
+                            
+                            for (let i = 0; i < newProducts.length; i += chunkSize) {
+                                const chunk = newProducts.slice(i, i + chunkSize);
+                                const batch = db.batch();
+                                chunk.forEach(p => {
+                                    // Add timestamp for Firestore
+                                    p.timestamp = firebase.firestore.FieldValue.serverTimestamp();
+                                    const docRef = ref.doc();
+                                    batch.set(docRef, p);
+                                });
+                                await batch.commit();
+                                successCount += chunk.length;
+                            }
+                        } else {
+                            // LocalDB
+                            const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`;
+                            newProducts.forEach(p => LocalDB.add(collection, p));
+                            setProducts(LocalDB.getAll(collection)); // Refresh
+                            successCount = newProducts.length;
+                        }
+
+                        showToast(`成功匯入 ${successCount} 筆資料！`, "success");
+                        e.target.value = null; // Reset input
+                    } catch (err) {
+                        console.error("Import Error:", err);
+                        showToast("匯入失敗，請檢查格式", "error");
+                    }
+                    setLoading(false);
+                };
+                reader.readAsBinaryString(file);
             };
 
             const filteredProducts = products.filter(p => {
@@ -611,8 +720,12 @@
                                 <h1 className="text-2xl font-bold flex items-center gap-2">庫存 {companyId && <span className="text-xs bg-blue-800 dark:bg-slate-700 px-2 py-1 rounded ml-2 hidden md:inline-block">{companyId}</span>}</h1>
                                 {companyId && <span className="text-xs bg-blue-800 dark:bg-slate-700 px-2 py-1 rounded ml-2 md:hidden">{companyId}</span>}
                                 <div className="flex gap-2">
+                                    <input type="file" id="import-excel" accept=".xlsx, .xls, .csv" onChange={handleImportExcel} className="hidden" />
+                                    <button onClick={() => document.getElementById('import-excel').click()} className="p-2 hover:bg-blue-700 dark:hover:bg-slate-600 rounded-full transition-colors flex items-center gap-1" title="匯入 Excel">
+                                        <Upload size={24} /> <span className="text-xs font-bold hidden md:inline">匯入</span>
+                                    </button>
                                     <button onClick={handleExportExcel} className="p-2 hover:bg-blue-700 dark:hover:bg-slate-600 rounded-full transition-colors flex items-center gap-1" title="匯出正規 Excel (.xlsx)">
-                                        <Download size={24} /> <span className="text-xs font-bold hidden md:inline">匯出Excel</span>
+                                        <Download size={24} /> <span className="text-xs font-bold hidden md:inline">匯出</span>
                                     </button>
                                     <button onClick={() => setView('settings')} className="p-2 hover:bg-blue-700 dark:hover:bg-slate-600 rounded-full transition-colors"><Settings size={24} /></button>
                                     <button onClick={handleLogout} className="p-2 hover:bg-blue-700 dark:hover:bg-slate-600 rounded-full transition-colors"><LogOut size={24} /></button>
@@ -671,23 +784,45 @@
                                         <img src={currentProduct.image} className="w-full h-full object-cover" />
                                     </div>
                                     <div className="p-6 md:p-8">
-                                        <h1 className="text-2xl md:text-3xl font-bold mb-2 text-gray-800 dark:text-white">{currentProduct.name}</h1>
+                                        <div className="flex justify-between items-start mb-2">
+                                            <h1 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-white flex-1">{currentProduct.name}</h1>
+                                            <button onClick={() => handleCopyText(currentProduct.name, "商品名稱")} className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-full transition-colors"><Copy size={20}/></button>
+                                        </div>
                                         <div className="flex gap-2 text-gray-500 dark:text-slate-400 mb-6 items-center flex-wrap">
                                             <Barcode /> <span className="font-mono text-lg mr-2">{currentProduct.barcode}</span>
                                             {currentProduct.barcodeImage && <div className="relative group cursor-pointer mr-2" onClick={() => window.open(currentProduct.barcodeImage)}><ImageIcon size={16} className="text-blue-500"/><span className="absolute bottom-full left-1/2 -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">查看原始標籤</span></div>}
                                             {currentProduct.weight && <span className="text-xs px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 rounded-full flex items-center gap-1 font-bold mr-2"><Scale size={12}/>{currentProduct.weight}</span>}
-                                            <span className={`text-xs px-2 py-1 rounded-full flex items-center gap-1 font-bold ${currentProduct.stock > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}><Archive size={12}/> 庫存: {currentProduct.stock || 0}</span>
                                             {currentProduct.category && <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-300 rounded-full flex items-center gap-1"><Tag size={12}/>{currentProduct.category}</span>}
                                         </div>
+
+                                        {/* Quick Stock & Pricing */}
+                                        <div className="mb-6 bg-gray-50 dark:bg-slate-700/50 p-4 rounded-xl border border-gray-100 dark:border-slate-700 flex flex-col md:flex-row gap-4 justify-between items-center">
+                                            <div className="flex items-center gap-4 w-full md:w-auto">
+                                                <div className="text-sm text-gray-500 dark:text-slate-400 font-bold whitespace-nowrap">快速庫存調整</div>
+                                                <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-1 rounded-lg border border-gray-200 dark:border-slate-600 shadow-sm flex-1 md:flex-none justify-center">
+                                                    <button onClick={() => handleQuickStockUpdate(-1)} className="w-10 h-10 flex items-center justify-center bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-colors font-bold disabled:opacity-50" disabled={(currentProduct.stock||0) <= 0}><Minus size={18}/></button>
+                                                    <span className={`w-12 text-center font-bold text-xl ${(currentProduct.stock||0) <= 3 ? 'text-red-500' : 'text-gray-800 dark:text-white'}`}>{currentProduct.stock || 0}</span>
+                                                    <button onClick={() => handleQuickStockUpdate(1)} className="w-10 h-10 flex items-center justify-center bg-green-50 hover:bg-green-100 text-green-600 rounded-lg transition-colors font-bold"><Plus size={18}/></button>
+                                                </div>
+                                            </div>
+                                            <div className="w-full h-px bg-gray-200 dark:bg-slate-600 md:w-px md:h-10"></div>
+                                            <div className="flex gap-4 overflow-x-auto w-full md:w-auto pb-2 md:pb-0">
+                                                 {(currentProduct.platforms||[]).map((p,i)=> (<div key={i} className="flex-shrink-0 bg-white dark:bg-slate-800 px-4 py-2 rounded-lg border border-gray-100 dark:border-slate-600 shadow-sm text-center"><div className="text-xs text-gray-500 dark:text-slate-400">{p.name}</div><div className="font-bold text-blue-600 dark:text-blue-400">${p.price}</div></div>))}
+                                            </div>
+                                        </div>
+
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                             <div className="space-y-6">
                                                 {/* AI Sales Strategy Section */}
                                                 <div className="bg-indigo-50 dark:bg-indigo-900/20 p-5 rounded-xl border border-indigo-100 dark:border-indigo-800">
                                                     <div className="flex justify-between items-center mb-3">
                                                         <h3 className="text-sm font-bold text-indigo-700 dark:text-indigo-300 uppercase flex items-center gap-2"><Brain size={16}/> AI 銷售顧問</h3>
-                                                        <button onClick={handleAISalesStrategy} disabled={aiLoading} className={`text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-full flex items-center gap-1 transition-all shadow-sm ${aiLoading?'opacity-70 cursor-wait':''}`}>
-                                                            <Sparkles size={12}/> {aiLoading ? '分析中...' : (currentProduct.aiAnalysis ? '重新分析' : '生成策略')}
-                                                        </button>
+                                                        <div className="flex gap-1">
+                                                             <button onClick={() => handleCopyText(currentProduct.aiAnalysis, "AI 分析")} disabled={!currentProduct.aiAnalysis} className="p-1.5 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-100 rounded-full transition-colors disabled:opacity-0"><Copy size={14}/></button>
+                                                             <button onClick={handleAISalesStrategy} disabled={aiLoading} className={`text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-full flex items-center gap-1 transition-all shadow-sm ${aiLoading?'opacity-70 cursor-wait':''}`}>
+                                                                <Sparkles size={12}/> {aiLoading ? '分析中...' : (currentProduct.aiAnalysis ? '重新分析' : '生成策略')}
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                     {currentProduct.aiAnalysis ? (
                                                         <div className="prose prose-sm dark:prose-invert max-w-none text-gray-700 dark:text-slate-300 text-sm leading-relaxed" dangerouslySetInnerHTML={{__html: marked.parse(currentProduct.aiAnalysis)}}></div>
@@ -714,11 +849,9 @@
                                                 </div>
                                             </div>
                                             <div className="space-y-4">
-                                                <h3 className="font-bold text-gray-700 dark:text-slate-300">平台價格</h3>
-                                                <div className="grid grid-cols-2 gap-3">{(currentProduct.platforms||[]).map((p,i)=> (<div key={i} className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl text-center border border-blue-100 dark:border-blue-800"><div className="text-blue-600 dark:text-blue-300 font-bold text-sm mb-1">{p.name}</div><div className="text-xl font-bold text-gray-800 dark:text-white">${p.price}</div></div>))}</div>
+                                                {currentProduct.description && <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-xl relative group"><button onClick={() => handleCopyText(currentProduct.description, "銷售文案")} className="absolute top-2 right-2 p-1.5 text-purple-400 hover:text-purple-600 hover:bg-purple-100 rounded-full transition-colors opacity-0 group-hover:opacity-100"><Copy size={16}/></button><h3 className="text-xs font-bold text-purple-600 dark:text-purple-300 uppercase mb-2">銷售文案</h3><div className="text-sm text-gray-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">{currentProduct.description}</div></div>}
                                             </div>
                                         </div>
-                                        {currentProduct.description && <div className="mt-6 bg-purple-50 dark:bg-purple-900/20 p-4 rounded-xl"><h3 className="text-xs font-bold text-purple-600 dark:text-purple-300 uppercase mb-2">銷售文案</h3><div className="text-sm text-gray-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">{currentProduct.description}</div></div>}
                                     </div>
                                 </div>
                                 {/* Fixed Floating Buttons */}
@@ -820,26 +953,6 @@
                                                         </div>
                                                     </div>
                                                 </div>
-                                            </div>
-
-                                            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 space-y-3">
-                                                <label className="text-xs font-bold text-orange-600 dark:text-orange-400 uppercase flex items-center gap-2"><Clock size={14}/> 歷史銷售紀錄管理</label>
-                                                <div className="flex flex-col gap-2 bg-orange-50 dark:bg-orange-900/10 p-3 rounded-lg border border-orange-100 dark:border-orange-800/50">
-                                                    <div className="flex gap-2">
-                                                        <input type="date" value={newHistory.date} onChange={e=>setNewHistory({...newHistory, date:e.target.value})} className="flex-1 p-2 bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-lg text-sm dark:text-white outline-none focus:border-orange-500" />
-                                                        <input type="number" value={newHistory.price} onChange={e=>setNewHistory({...newHistory, price:e.target.value})} className="w-24 p-2 bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-lg text-sm dark:text-white outline-none focus:border-orange-500" placeholder="價格 $" />
-                                                    </div>
-                                                    <div className="flex gap-2">
-                                                        <input value={newHistory.note} onChange={e=>setNewHistory({...newHistory, note:e.target.value})} className="flex-1 p-2 bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-lg text-sm dark:text-white outline-none focus:border-orange-500" placeholder="備註 (如: 直播優惠)" />
-                                                        <button onClick={handleAddHistory} className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold rounded-lg whitespace-nowrap">➕ 加入</button>
-                                                    </div>
-                                                </div>
-                                                <div className="max-h-40 overflow-y-auto space-y-2 mt-2">{currentProduct.salesHistory?.map((h, i) => (<div key={h.id || i} className="flex justify-between items-center bg-gray-50 dark:bg-slate-700/50 p-2 rounded-lg text-sm border border-gray-100 dark:border-slate-700"><div className="flex-1"><span className="font-mono text-gray-500 dark:text-slate-400 mr-2">{h.date}</span><span className="font-bold text-gray-800 dark:text-white mr-2">${h.price}</span><span className="text-gray-400 text-xs">{h.note}</span></div><button onClick={()=>{const n=currentProduct.salesHistory.filter(x=>x.id!==h.id);setCurrentProduct({...currentProduct,salesHistory:n})}} className="text-red-400 hover:text-red-600 p-1"><X size={14}/></button></div>))}</div>
-                                            </div>
-
-                                            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700">
-                                                <div className="flex justify-between mb-2 items-center"><label className="text-xs font-bold text-gray-500 dark:text-slate-400 uppercase">銷售文案</label><button onClick={handleAIGenerateDesc} className="text-xs bg-purple-100 dark:bg-purple-900/50 hover:bg-purple-200 dark:hover:bg-purple-900 text-purple-700 dark:text-purple-300 px-3 py-1 rounded-full flex gap-1 transition-colors"><Wand size={12}/> AI 生成</button></div>
-                                                <textarea value={currentProduct.description||''} onChange={e=>setCurrentProduct({...currentProduct, description:e.target.value})} className="w-full p-3 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 dark:text-white rounded-lg h-24 outline-none focus:border-purple-500 transition-all resize-none" placeholder="輸入或生成銷售文案..." />
                                             </div>
 
                                             <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 space-y-3">
