@@ -1,25 +1,26 @@
 <!-- 
     =======================================================
-    🚀 掌上庫存系統 v3.20.0 (Excel 匯入特別版)
+    🚀 掌上庫存系統 v3.18.17 (批量管理神器版)
     =======================================================
     
     更新說明：
-    1. 📥 新增 Excel 匯入功能：
-       - 支援 .xlsx 檔案上傳。
-       - 自動對應欄位：商品名稱、條碼、分類、庫存、售價(預設為現場價)、重量、描述。
-       - 自動防呆：若無條碼則自動生成，若無分類則設為預設值。
-    2. 📄 下載範本功能：
-       - 提供標準 Excel 格式範本下載，方便使用者整理資料。
-    3. ⚡ 流程優化：
-       - 匯入時會顯示成功筆數 Toast 提示。
-       - 匯入後自動切換至列表並刷新資料。
+    1. ☑️ 新增「批量管理」模式：
+       - 在主畫面新增「批量」按鈕，點擊進入選擇模式。
+       - 支援多選商品、全選/取消全選。
+    2. 🗑️ 批量刪除功能：
+       - 選取多個商品後，可一鍵批量刪除，解決上架錯誤無法快速清理的痛點。
+    3. 📂 批量移動分類：
+       - 支援將選取的商品一次移動到指定分類，方便整理庫存。
+    4. 🎨 介面互動優化：
+       - 選擇模式下，隱藏新增按鈕，顯示底部操作列。
+       - 商品卡片新增勾選狀態視覺回饋。
 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>掌上庫存系統 v3.20</title>
+    <title>掌上庫存系統</title>
     
     <!-- React & ReactDOM -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -56,7 +57,7 @@
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.0/dist/JsBarcode.all.min.js"></script>
     <!-- Markdown Parser for AI responses -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <!-- SheetJS for proper Excel export/import -->
+    <!-- SheetJS for proper Excel export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
     <style>
@@ -127,7 +128,7 @@
             },
             add: (collection, item) => {
                 const items = LocalDB.getAll(collection);
-                const newItem = { ...item, id: 'local_' + Date.now() + Math.random().toString(36).substr(2, 5), timestamp: { seconds: Date.now() / 1000 } };
+                const newItem = { ...item, id: 'local_' + Date.now(), timestamp: { seconds: Date.now() / 1000 } };
                 items.unshift(newItem);
                 LocalDB.saveAll(collection, items);
                 return newItem;
@@ -152,7 +153,6 @@
             Camera: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>),
             Barcode: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 5v14"/><path d="M8 5v14"/><path d="M12 5v14"/><path d="M17 5v14"/><path d="M21 5v14"/></svg>),
             Plus: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>),
-            Minus: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="5" y1="12" x2="19" y2="12"/></svg>),
             Search: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>),
             ArrowLeft: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>),
             ImageIcon: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>),
@@ -161,7 +161,6 @@
             Sparkles: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>),
             Wand: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8 19 13"/><path d="M15 9h0"/><path d="M17.8 6.2 19 5"/><path d="m3 21 9-9"/><path d="M12.2 6.2 11 5"/></svg>),
             Download: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>),
-            Upload: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>),
             LogOut: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>),
             User: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>),
             Settings: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.35a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>),
@@ -178,9 +177,11 @@
             DollarSign: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>),
             Archive: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>),
             Scale: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg>),
-            Copy: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>)
+            CheckSquare: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>),
+            Square: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/></svg>),
+            FolderInput: ({size=24, className=""}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M2 9V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H2"/><path d="M2 13h10"/><path d="m9 16 3-3-3-3"/></svg>)
         };
-        const { Camera, Barcode, Plus, Minus, Search, ArrowLeft, ImageIcon, X, AlertCircle, Sparkles, Wand, Download, Upload, LogOut, User, Settings, Users, Key, GoogleLogo, Moon, Calendar, Clock, Tag, Edit2, Trash2, Brain, DollarSign, Archive, Scale, Copy } = Icons;
+        const { Camera, Barcode, Plus, Search, ArrowLeft, ImageIcon, X, AlertCircle, Sparkles, Wand, Download, LogOut, User, Settings, Users, Key, GoogleLogo, Moon, Calendar, Clock, Tag, Edit2, Trash2, Brain, DollarSign, Archive, Scale, CheckSquare, Square, FolderInput } = Icons;
 
         // --- Utils & AI ---
         const callGemini = async (prompt, imageBase64 = null, apiKey = null) => {
@@ -259,22 +260,34 @@
             );
         };
 
-        const ProductCard = ({ product, onClick }) => {
+        const ProductCard = ({ product, onClick, isSelectionMode, isSelected, onToggleSelect }) => {
             const getLatestPrice = () => {
                 if (product.salesHistory && product.salesHistory.length > 0) return product.salesHistory[0].price;
                 return product.lastSoldPrice || 0;
             };
             const latestPrice = getLatestPrice();
             
-            // Stock Logic with visual Alert for low stock
+            // Stock Color Logic
             const stock = product.stock || 0;
-            const isLowStock = stock <= 3;
             const stockColor = stock > 0 
                 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' 
                 : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300';
 
+            const cardClick = () => {
+                if (isSelectionMode) {
+                    onToggleSelect(product.id);
+                } else {
+                    onClick();
+                }
+            };
+
             return (
-                <div onClick={onClick} className={`bg-white dark:bg-slate-800 dark:border-slate-700 rounded-xl shadow-sm p-4 flex items-center gap-4 active:bg-gray-50 dark:active:bg-slate-700 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors cursor-pointer border relative overflow-hidden h-full group ${isLowStock ? 'border-l-4 border-l-red-500 border-y-gray-100 border-r-gray-100' : 'border-gray-100'}`}>
+                <div onClick={cardClick} className={`bg-white dark:bg-slate-800 dark:border-slate-700 rounded-xl shadow-sm p-4 flex items-center gap-4 active:bg-gray-50 dark:active:bg-slate-700 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors cursor-pointer border relative overflow-hidden h-full group ${isSelected ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-100'}`}>
+                    {isSelectionMode && (
+                        <div className="absolute top-2 left-2 z-10">
+                            {isSelected ? <CheckSquare className="text-blue-600 fill-white" size={24}/> : <Square className="text-gray-300 fill-white" size={24}/>}
+                        </div>
+                    )}
                     {product.description && <div className="absolute top-0 right-0 w-3 h-3 bg-purple-400 rounded-bl-lg"></div>}
                     <div className="w-20 h-20 bg-gray-100 dark:bg-slate-700 rounded-lg flex-shrink-0 overflow-hidden relative group-hover:scale-105 transition-transform duration-300">
                         {product.image ? <img src={product.image} className="w-full h-full object-cover" /> : <ImageIcon className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500" size={24} />}
@@ -307,6 +320,7 @@
             );
         };
 
+        // ... (LoginScreen & SettingsView same as v3.16)
         const LoginScreen = ({ onLogin, onRegister, onGoogleLogin, onDemoLogin }) => {
             const [email, setEmail] = React.useState('');
             const [password, setPassword] = React.useState('');
@@ -319,16 +333,6 @@
         const SettingsView = ({ companyId, setCompanyId, onClose, userEmail, apiKey, setApiKey, isDarkMode, toggleDarkMode, isDemoMode, onSaveSettings }) => {
             const [tempId, setTempId] = React.useState(companyId || '');
             const [tempKey, setTempKey] = React.useState(apiKey || '');
-            
-            // Generate Template Function
-            const handleDownloadTemplate = () => {
-                const headers = ["商品名稱", "條碼", "分類", "庫存", "售價", "重量", "描述"];
-                const example = ["範例商品(可刪除)", "1234567890", "食品", "10", "150", "500g", "這是一個範例商品"];
-                const ws = XLSX.utils.aoa_to_sheet([headers, example]);
-                const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, "匯入範本");
-                XLSX.writeFile(wb, "inventory_import_template.xlsx");
-            };
 
             return <div className="fixed inset-0 z-50 bg-gray-100 dark:bg-slate-900 flex flex-col items-center"><div className="w-full h-full max-w-2xl bg-white dark:bg-slate-800 shadow-2xl flex flex-col overflow-hidden"><div className="bg-white dark:bg-slate-800 p-4 shadow-sm flex items-center gap-3 border-b dark:border-slate-700 flex-shrink-0"><button onClick={onClose}><ArrowLeft/></button><h1 className="text-lg font-bold dark:text-white">設定</h1></div><div className="flex-1 overflow-y-auto modal-scroll p-6 space-y-6"><div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border dark:border-slate-700 flex justify-between items-center"><h2 className="text-sm font-bold dark:text-slate-200 flex items-center gap-2"><Moon size={16}/> 夜間模式</h2><button onClick={toggleDarkMode} className={`w-12 h-6 rounded-full p-1 transition-colors ${isDarkMode?'bg-blue-600':'bg-gray-300'}`}><div className={`w-4 h-4 bg-white rounded-full transform transition-transform ${isDarkMode?'translate-x-6':'translate-x-0'}`}></div></button></div><div className="p-4 rounded-xl shadow-sm border dark:border-slate-700"><h2 className="text-sm font-bold mb-4 flex items-center gap-2 dark:text-white"><User size={16}/> 帳號</h2><div className="text-lg font-medium dark:text-white">{userEmail}</div></div>
             
@@ -341,14 +345,6 @@
                     placeholder="例如：MyCoffeeShop"
                 />
                 <div className="mt-2 text-xs text-gray-400">您可以直接修改上方名稱來為商店改名，系統會詢問是否搬移資料。</div>
-            </div>
-            
-            <div className="p-4 rounded-xl shadow-sm border dark:border-slate-700">
-                <h2 className="text-sm font-bold mb-4 flex items-center gap-2 text-green-600"><Download size={16}/> 資料匯入範本</h2>
-                <p className="text-sm text-gray-600 dark:text-slate-300 mb-4">您可以下載標準 Excel 格式，整理好庫存後再回到首頁點擊右上角的「匯入」按鈕。</p>
-                <button onClick={handleDownloadTemplate} className="w-full py-2 bg-green-100 hover:bg-green-200 text-green-700 dark:bg-green-900/30 dark:text-green-300 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors">
-                    <Download size={18}/> 下載 Excel 範本
-                </button>
             </div>
 
             <div className="p-4 rounded-xl shadow-sm border dark:border-slate-700"><h2 className="text-sm font-bold mb-4 flex items-center gap-2 text-purple-600"><Key size={16}/> Gemini API (AI 功能)</h2><input type="password" value={tempKey} onChange={e=>setTempKey(e.target.value)} className="w-full p-3 bg-gray-50 dark:bg-slate-700 border rounded-lg dark:text-white" placeholder="AIzaSy..."/><p className="text-xs text-gray-500 mt-2">請貼上您的 Google Gemini API Key 以啟用 AI 功能。</p></div><button onClick={()=>{ onSaveSettings(tempId.trim(), tempKey.trim()); }} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg mb-8">儲存設定</button></div></div></div>;
@@ -380,6 +376,10 @@
             const [showCatManager, setShowCatManager] = React.useState(false);
             const [newHistory, setNewHistory] = React.useState({ date: new Date().toISOString().split('T')[0], price: '', note: '' });
             const [manualCats, setManualCats] = React.useState(() => { try { return JSON.parse(localStorage.getItem('inventory_custom_cats') || '[]'); } catch { return []; } });
+            
+            // Bulk Selection State
+            const [isSelectionMode, setIsSelectionMode] = React.useState(false);
+            const [selectedIds, setSelectedIds] = React.useState(new Set());
 
             React.useEffect(() => { if (isDarkMode) document.documentElement.classList.add('dark'); else document.documentElement.classList.remove('dark'); localStorage.setItem('inventory_dark_mode', isDarkMode); }, [isDarkMode]);
             const setCompanyId = (id) => { setCompanyIdState(id); localStorage.setItem('inventory_company_id', id); showToast(id ? `已切換至: ${id}` : "已切換回個人模式", "success"); };
@@ -391,322 +391,129 @@
             React.useEffect(() => { if (isConfigured && auth) { const unsubscribe = auth.onAuthStateChanged((u) => setUser(u)); return () => unsubscribe(); } }, []);
             React.useEffect(() => { if (!user) { setProducts([]); return; } if (isConfigured && !isDemoMode) { const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app'; let q; if (companyId) { q = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory').where('companyId', '==', companyId); } else { q = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products').orderBy('timestamp', 'desc'); } const unsubscribe = q.onSnapshot((snapshot) => { let items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })); if (companyId) items.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)); setProducts(items); }, (error) => showToast("讀取失敗", "error")); return () => unsubscribe(); } else { const collectionKey = companyId ? `shared_${companyId}` : `user_${user.uid}`; const items = LocalDB.getAll(collectionKey); if (items.length === 0) { const demoItem = { id: 'demo_1', name: '範例商品 (iPhone 15)', barcode: '123456789', category: '電子產品', platforms: [{name:'蝦皮', price: 30000}], lastSoldPrice: 29000, stock: 10, description: '這是一筆範例資料', timestamp: {seconds: Date.now()/1000}, lastEditor: 'DemoUser', aiAnalysis: "尚無分析資料" }; LocalDB.add(collectionKey, demoItem); setProducts([demoItem]); } else { setProducts(items); } } }, [user, companyId, view, isDemoMode]);
 
+            // ... (Auth Logic: handleLogin, handleDemoLogin, etc. - same as before)
             const handleLogin = async (email, password) => { if (isConfigured) { try { await auth.signInWithEmailAndPassword(email, password); showToast("登入成功！"); } catch (e) { showToast("登入失敗: " + e.message, "error"); } } };
             const handleDemoLogin = () => { const demoUser = { uid: "demo_user", email: "guest@demo.com", displayName: "訪客" }; setIsDemoMode(true); setUser(demoUser); showToast("已進入演示模式", "success"); };
             const handleGoogleLogin = async () => { if (!isConfigured) return; const provider = new firebase.auth.GoogleAuthProvider(); try { await auth.signInWithPopup(provider); showToast("Google 登入成功！"); } catch (error) { showToast("登入失敗", "error"); } };
             const handleRegister = async (email, password) => { try { await auth.createUserWithEmailAndPassword(email, password); showToast("註冊成功！"); } catch (e) { showToast("註冊失敗: " + e.message, "error"); } };
             const handleLogout = async () => { if(confirm("確定要登出嗎？")) { if (isConfigured && !isDemoMode) await auth.signOut(); setUser(null); setIsDemoMode(false); showToast("已登出"); } };
             
+            // ... (AI Logic: handleAIIdentify, etc. - same as before)
             const handleAIIdentify = async () => { if (!currentProduct.image) return showToast("請先上傳照片", "error"); setAiLoading(true); try { const res = await callGemini("請辨識此商品名稱，只回傳名稱，不要多餘文字。", currentProduct.image, apiKey); setCurrentProduct(prev => ({ ...prev, name: res.trim() })); showToast("辨識成功！", "magic"); } catch (e) { showToast("API Key 錯誤或額度不足", "error"); } setAiLoading(false); };
             const handleAIGenerateDesc = async () => { if (!currentProduct.name) return showToast("請先輸入名稱", "error"); setAiLoading(true); try { const res = await callGemini(`你是專業小編。請為「${currentProduct.name}」寫一段 100 字內的 FB 銷售貼文，語氣活潑、加入 emoji。`, currentProduct.image, apiKey); setCurrentProduct(prev => ({ ...prev, description: res })); showToast("生成成功！", "magic"); } catch (e) { showToast("API Key 錯誤或額度不足", "error"); } setAiLoading(false); };
             const handleAISalesStrategy = async () => { if (!currentProduct.name) return showToast("請先輸入名稱", "error"); setAiLoading(true); try { const prompt = `你是專業電商顧問。請分析商品「${currentProduct.name}」${currentProduct.description ? `(描述：${currentProduct.description})` : ""}。請提供台灣市場的銷售策略：\n1. 🎯 目標客群 (3點)\n2. 🔥 銷售亮點 (3點)\n3. 🏷️ 推薦 Hashtags (5個)\n請用 Markdown 格式與繁體中文清楚呈現。`; const res = await callGemini(prompt, currentProduct.image, apiKey); const newProduct = { ...currentProduct, aiAnalysis: res }; setCurrentProduct(newProduct); if (isConfigured && !isDemoMode) { const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app'; let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products'); await ref.doc(newProduct.id).update({ aiAnalysis: res }); } else { const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`; LocalDB.update(collection, newProduct.id, { aiAnalysis: res }); } showToast("策略生成成功並已儲存！", "magic"); } catch (e) { showToast("API Key 錯誤", "error"); } setAiLoading(false); };
             const handleAIPriceEstimate = async () => { if (!currentProduct.name) return showToast("請先輸入名稱", "error"); setAiLoading(true); try { const res = await callGemini(`商品：「${currentProduct.name}」。請根據一般台灣市場行情，提供一個合理的售價區間 (TWD)，並簡述理由(20字內)。請直接回傳純文字，例如：『建議 $500-$600，市場均價』。`, currentProduct.image, apiKey); alert(`💰 AI 估價建議：\n\n${res}`); } catch (e) { showToast("API Key 錯誤", "error"); } setAiLoading(false); };
             const handleAICategorySuggest = async () => { if (!currentProduct.name) return showToast("請先輸入名稱", "error"); setAiLoading(true); try { const res = await callGemini(`商品：「${currentProduct.name}」。請直接提供一個最適合的分類名稱(例如：3C、食品、服飾)，只回傳分類名稱，不要有標點符號。`, currentProduct.image, apiKey); setCurrentProduct(prev => ({ ...prev, category: res.trim() })); showToast(`已建議分類：${res.trim()}`, "magic"); } catch (e) { showToast("API Key 錯誤", "error"); } setAiLoading(false); };
-
-            const handleAIScanLabel = async () => {
-                if (!currentProduct.barcodeImage) return showToast("請先上傳標籤照片", "error");
-                setAiLoading(true);
-                try {
-                    const prompt = "請分析這張圖片，這是一個商品標籤。請辨識上面的『商品名稱』與『條碼內容(可能包含英數字)』以及『商品重量/規格』。請以 JSON 格式回傳，格式如下：{\"name\": \"識別到的名稱\", \"barcode\": \"識別到的條碼\", \"weight\": \"識別到的重量\"}。如果找不到，請留空。只回傳 JSON，不要其他文字。";
-                    const res = await callGemini(prompt, currentProduct.barcodeImage, apiKey);
-                    const jsonMatch = res.match(/\{[\s\S]*\}/);
-                    if (jsonMatch) {
-                        const data = JSON.parse(jsonMatch[0]);
-                        setCurrentProduct(prev => ({
-                            ...prev,
-                            name: data.name || prev.name,
-                            barcode: data.barcode || prev.barcode,
-                            weight: data.weight || prev.weight
-                        }));
-                        if(data.name || data.barcode || data.weight) showToast(`成功辨識：${data.name || ''} / ${data.weight || ''}`, "magic");
-                        else showToast("未能辨識出明顯資訊", "info");
-                    } else {
-                        showToast("AI 回傳格式無法解析", "error");
-                    }
-                } catch (e) {
-                    showToast("API Key 錯誤或解析失敗", "error");
-                    console.error(e);
-                }
-                setAiLoading(false);
-            };
+            const handleAIScanLabel = async () => { if (!currentProduct.barcodeImage) return showToast("請先上傳標籤照片", "error"); setAiLoading(true); try { const prompt = "請分析這張圖片，這是一個商品標籤。請辨識上面的『商品名稱』與『條碼內容(可能包含英數字)』以及『商品重量/規格』。請以 JSON 格式回傳，格式如下：{\"name\": \"識別到的名稱\", \"barcode\": \"識別到的條碼\", \"weight\": \"識別到的重量\"}。如果找不到，請留空。只回傳 JSON，不要其他文字。"; const res = await callGemini(prompt, currentProduct.barcodeImage, apiKey); const jsonMatch = res.match(/\{[\s\S]*\}/); if (jsonMatch) { const data = JSON.parse(jsonMatch[0]); setCurrentProduct(prev => ({ ...prev, name: data.name || prev.name, barcode: data.barcode || prev.barcode, weight: data.weight || prev.weight })); if(data.name || data.barcode || data.weight) showToast(`成功辨識：${data.name || ''} / ${data.weight || ''}`, "magic"); else showToast("未能辨識出明顯資訊", "info"); } else { showToast("AI 回傳格式無法解析", "error"); } } catch (e) { showToast("API Key 錯誤或解析失敗", "error"); console.error(e); } setAiLoading(false); };
 
             const handleAddHistory = () => { if(!newHistory.price) return showToast("請輸入售價", "error"); const historyItem = { ...newHistory, id: Date.now() }; const updatedHistory = [historyItem, ...(currentProduct.salesHistory || [])].sort((a, b) => new Date(b.date) - new Date(a.date)); setCurrentProduct({ ...currentProduct, salesHistory: updatedHistory }); setNewHistory({ date: new Date().toISOString().split('T')[0], price: '', note: '' }); showToast("已加入紀錄", "success"); };
             
-            const updateProductField = async (id, fieldName, newValue) => {
-                const editorName = user.displayName || user.email || 'user_' + user.uid.slice(0,5);
-                const updates = { [fieldName]: newValue, lastEditor: editorName };
-                
-                try {
-                    if (isConfigured && !isDemoMode) {
-                        const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app';
-                        let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products');
-                        await ref.doc(id).update(updates);
-                    } else {
-                        const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`;
-                        LocalDB.update(collection, id, updates);
-                        setProducts(LocalDB.getAll(collection));
-                    }
-                    if (currentProduct && currentProduct.id === id) {
-                        setCurrentProduct(prev => ({...prev, [fieldName]: newValue}));
-                    }
-                    return true;
-                } catch (e) {
-                    console.error(e);
-                    showToast("更新失敗", "error");
-                    return false;
-                }
-            };
-
-            const handleQuickStockUpdate = async (delta) => {
-                if (!currentProduct) return;
-                const newStock = Math.max(0, (currentProduct.stock || 0) + delta);
-                const success = await updateProductField(currentProduct.id, 'stock', newStock);
-                if (success) showToast(`庫存更新：${newStock}`, "success");
-            };
-
-            const handleCopyText = (text, label) => {
-                if (!text) return;
-                navigator.clipboard.writeText(text).then(() => showToast(`已複製 ${label}`, "success")).catch(() => showToast("複製失敗", "error"));
-            };
-
-            const handleSave = async () => { 
-                if (!currentProduct.name) return showToast("請輸入名稱", "error"); 
-                setLoading(true); 
-                try { 
-                    const editorName = user.displayName || user.email || 'user_' + user.uid.slice(0,5); 
-                    const data = { ...currentProduct, lastEditor: editorName }; 
-                    data.stock = data.stock === '' ? 0 : parseInt(data.stock);
-
-                    if (isConfigured && !isDemoMode) { 
-                        const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app'; 
-                        let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products'); 
-                        if (data.companyId === undefined && companyId) data.companyId = companyId; 
-                        data.timestamp = firebase.firestore.FieldValue.serverTimestamp(); 
-                        if (currentProduct.id) await ref.doc(currentProduct.id).update(data); else await ref.add(data); 
-                    } else { 
-                        const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`; 
-                        if (currentProduct.id) LocalDB.update(collection, currentProduct.id, data); else LocalDB.add(collection, data); 
-                        setProducts(LocalDB.getAll(collection)); 
-                    } 
-                    showToast("儲存成功", "success"); 
-                    setView('list'); 
-                    setCurrentProduct(null); 
-                } catch (e) { console.error(e); showToast("儲存失敗", "error"); } 
-                setLoading(false); 
-            };
+            // ... (Save/Delete/Migrate/Excel Logic - same as before)
+            const handleSave = async () => { if (!currentProduct.name) return showToast("請輸入名稱", "error"); setLoading(true); try { const editorName = user.displayName || user.email || 'user_' + user.uid.slice(0,5); const data = { ...currentProduct, lastEditor: editorName }; data.stock = data.stock === '' ? 0 : parseInt(data.stock); if (isConfigured && !isDemoMode) { const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app'; let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products'); if (data.companyId === undefined && companyId) data.companyId = companyId; data.timestamp = firebase.firestore.FieldValue.serverTimestamp(); if (currentProduct.id) await ref.doc(currentProduct.id).update(data); else await ref.add(data); } else { const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`; if (currentProduct.id) LocalDB.update(collection, currentProduct.id, data); else LocalDB.add(collection, data); setProducts(LocalDB.getAll(collection)); } showToast("儲存成功", "success"); setView('list'); setCurrentProduct(null); } catch (e) { console.error(e); showToast("儲存失敗", "error"); } setLoading(false); };
             const handleDelete = async (id) => { if (!confirm("確定刪除？")) return; try { if (isConfigured && !isDemoMode) { const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app'; let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products'); await ref.doc(id).delete(); } else { const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`; LocalDB.delete(collection, id); setProducts(LocalDB.getAll(collection)); } showToast("已刪除"); setView('list'); } catch(e) { showToast("刪除失敗", "error"); } };
-            
-            const handleSettingsSave = async (newId, newApiKey) => {
-                setApiKey(newApiKey);
-                if (newId === companyId) { setView('list'); return; }
-                if (!newId) { setCompanyId(''); setView('list'); return; }
-                if (companyId) {
-                    if (confirm(`您將商店名稱從「${companyId}」改為「${newId}」。\n\n請問您是要：\n[確定] 改名 (將舊資料搬移過去)\n[取消] 僅切換 (保留舊資料，只切換查看)`)) {
-                        await migrateData(companyId, newId);
-                    } else {
-                        setCompanyId(newId);
-                    }
-                } else {
-                    setCompanyId(newId);
-                }
-                setView('list');
-            };
-
-            const migrateData = async (oldId, newId) => {
-                setLoading(true);
-                try {
-                    if (isConfigured && !isDemoMode) {
-                        const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app';
-                        let ref = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory');
-                        const snapshot = await ref.where('companyId', '==', oldId).get();
-                        if (snapshot.empty) {
-                            showToast("舊名稱下沒有資料可搬移", "info");
-                            setCompanyId(newId);
-                            setLoading(false);
-                            return;
-                        }
-                        const batch = db.batch();
-                        let count = 0;
-                        snapshot.docs.forEach(doc => {
-                            if (count < 490) { batch.update(doc.ref, { companyId: newId }); count++; }
-                        });
-                        await batch.commit();
-                        showToast(`成功改名並搬移 ${count} 筆資料！`, "success");
-                    } else {
-                        const oldCollection = `shared_${oldId}`;
-                        const newCollection = `shared_${newId}`;
-                        const oldItems = LocalDB.getAll(oldCollection);
-                        const newItems = LocalDB.getAll(newCollection);
-                        const mergedItems = [...newItems, ...oldItems.map(item => ({...item, companyId: newId}))];
-                        LocalDB.saveAll(newCollection, mergedItems);
-                        LocalDB.saveAll(oldCollection, []);
-                        showToast(`成功改名 (本機)！`, "success");
-                    }
-                    setCompanyId(newId); 
-                } catch(e) { showToast("改名失敗: " + e.message, "error"); console.error(e); }
-                setLoading(false);
-            };
-
+            const handleSettingsSave = async (newId, newApiKey) => { setApiKey(newApiKey); if (newId === companyId) { setView('list'); return; } if (!newId) { setCompanyId(''); setView('list'); return; } if (companyId) { if (confirm(`您將商店名稱從「${companyId}」改為「${newId}」。\n\n請問您是要：\n[確定] 改名 (將舊資料搬移過去)\n[取消] 僅切換 (保留舊資料，只切換查看)`)) { await migrateData(companyId, newId); } else { setCompanyId(newId); } } else { setCompanyId(newId); } setView('list'); };
+            const migrateData = async (oldId, newId) => { setLoading(true); try { if (isConfigured && !isDemoMode) { const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app'; let ref = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory'); const snapshot = await ref.where('companyId', '==', oldId).get(); if (snapshot.empty) { showToast("舊名稱下沒有資料可搬移", "info"); setCompanyId(newId); setLoading(false); return; } const batch = db.batch(); let count = 0; snapshot.docs.forEach(doc => { if (count < 490) { batch.update(doc.ref, { companyId: newId }); count++; } }); await batch.commit(); showToast(`成功改名並搬移 ${count} 筆資料！`, "success"); } else { const oldCollection = `shared_${oldId}`; const newCollection = `shared_${newId}`; const oldItems = LocalDB.getAll(oldCollection); const newItems = LocalDB.getAll(newCollection); const mergedItems = [...newItems, ...oldItems.map(item => ({...item, companyId: newId}))]; LocalDB.saveAll(newCollection, mergedItems); LocalDB.saveAll(oldCollection, []); showToast(`成功改名 (本機)！`, "success"); } setCompanyId(newId); } catch(e) { showToast("改名失敗: " + e.message, "error"); console.error(e); } setLoading(false); };
             const handleAddManualCategory = (newCat) => { const updated = [...manualCats, newCat]; setManualCats(updated); localStorage.setItem('inventory_custom_cats', JSON.stringify(updated)); showToast(`已新增分類：${newCat}`, "success"); };
-            const handleRenameCategory = async (oldName, newName) => { 
-                if (!newName || newName === oldName) return; 
-                const isMerge = categories.includes(newName);
-                if (!confirm(isMerge ? `分類「${newName}」已存在。\n確定要將「${oldName}」合併至「${newName}」嗎？\n(所有「${oldName}」的商品將移至「${newName}」)` : `確定要將「${oldName}」改名為「${newName}」嗎？`)) return; 
-                if (manualCats.includes(oldName)) { 
-                    let updated = manualCats.filter(c => c !== oldName);
-                    if (!updated.includes(newName)) updated.push(newName);
-                    setManualCats(updated); 
-                    localStorage.setItem('inventory_custom_cats', JSON.stringify(updated)); 
-                } 
-                const affectedProducts = products.filter(p => p.category === oldName); 
-                if (affectedProducts.length > 0) { 
-                    setLoading(true); 
-                    try { 
-                        if (isConfigured && !isDemoMode) { 
-                            const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app'; 
-                            let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products'); 
-                            const batch = db.batch(); 
-                            affectedProducts.forEach(p => { batch.update(ref.doc(p.id), { category: newName }); }); 
-                            await batch.commit(); 
-                        } else { 
-                            const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`; 
-                            affectedProducts.forEach(p => { LocalDB.update(collection, p.id, { ...p, category: newName }); }); 
-                            setProducts(LocalDB.getAll(collection)); 
-                        } 
-                        showToast(`已將 ${affectedProducts.length} 個商品移至「${newName}」`, "success"); 
-                    } catch(e) { showToast("更新失敗", "error"); } 
-                    setLoading(false); 
-                } else { showToast("分類名稱已更新", "success"); }
-            };
-            
+            const handleRenameCategory = async (oldName, newName) => { if (!newName || newName === oldName) return; const isMerge = categories.includes(newName); if (!confirm(isMerge ? `分類「${newName}」已存在。\n確定要將「${oldName}」合併至「${newName}」嗎？\n(所有「${oldName}」的商品將移至「${newName}」)` : `確定要將「${oldName}」改名為「${newName}」嗎？`)) return; if (manualCats.includes(oldName)) { let updated = manualCats.filter(c => c !== oldName); if (!updated.includes(newName)) updated.push(newName); setManualCats(updated); localStorage.setItem('inventory_custom_cats', JSON.stringify(updated)); } const affectedProducts = products.filter(p => p.category === oldName); if (affectedProducts.length > 0) { setLoading(true); try { if (isConfigured && !isDemoMode) { const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app'; let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products'); const batch = db.batch(); affectedProducts.forEach(p => { batch.update(ref.doc(p.id), { category: newName }); }); await batch.commit(); } else { const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`; affectedProducts.forEach(p => { LocalDB.update(collection, p.id, { ...p, category: newName }); }); setProducts(LocalDB.getAll(collection)); } showToast(`已將 ${affectedProducts.length} 個商品移至「${newName}」`, "success"); } catch(e) { showToast("更新失敗", "error"); } setLoading(false); } else { showToast("分類名稱已更新", "success"); } };
             const handleDeleteCategory = async (catName) => { if (!confirm(`確定要刪除「${catName}」分類嗎？`)) return; if (manualCats.includes(catName)) { const updated = manualCats.filter(c => c !== catName); setManualCats(updated); localStorage.setItem('inventory_custom_cats', JSON.stringify(updated)); } const affectedProducts = products.filter(p => p.category === catName); if (affectedProducts.length > 0) { setLoading(true); try { if (isConfigured && !isDemoMode) { const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app'; let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products'); const batch = db.batch(); affectedProducts.forEach(p => { batch.update(ref.doc(p.id), { category: '' }); }); await batch.commit(); } else { const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`; affectedProducts.forEach(p => { LocalDB.update(collection, p.id, { ...p, category: '' }); }); setProducts(LocalDB.getAll(collection)); } showToast(`已移除分類連結`, "success"); } catch(e) { showToast("刪除失敗", "error"); } setLoading(false); } else { showToast("已刪除分類標籤", "success"); } };
-
-            const handleExportExcel = () => {
-                if (products.length === 0) return showToast("沒有資料可匯出", "error");
-                const allPlatformNames = new Set();
-                products.forEach(p => { if (p.platforms) { p.platforms.forEach(pl => { if (pl.name) allPlatformNames.add(pl.name); }); } });
-                const platformHeaders = Array.from(allPlatformNames).sort();
-                const headers = ["商品名稱", "條碼", "分類", "庫存", "重量", ...platformHeaders.map(p => `價格 (${p})`), "最新成交日期", "最新成交價", "歷史成交紀錄", "描述"];
-                const data = products.map(p => {
-                    const platformPrices = platformHeaders.map(headerName => { const found = (p.platforms || []).find(pl => pl.name === headerName); return found ? found.price : ""; });
-                    const hasHistory = p.salesHistory && p.salesHistory.length > 0;
-                    const latestDate = hasHistory ? p.salesHistory[0].date : "-";
-                    const latestPrice = hasHistory ? p.salesHistory[0].price : (p.lastSoldPrice || 0);
-                    const historyStr = (p.salesHistory || []).map(h => `${h.date}: $${h.price}${h.note ? '('+h.note+')' : ''}`).join(" | ");
-                    return [p.name, p.barcode, p.category, p.stock, p.weight || '', ...platformPrices, latestDate, latestPrice, historyStr, p.description || ''];
-                });
-                const wsData = [headers, ...data];
-                const ws = XLSX.utils.aoa_to_sheet(wsData);
-                const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, "庫存清單");
-                XLSX.writeFile(wb, `inventory_export_${new Date().toISOString().slice(0,10)}.xlsx`);
-                showToast("匯出 Excel (.xlsx) 成功！", "success");
-            };
-            
-            // --- Excel Import Logic ---
-            const handleImportExcel = (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                
-                const reader = new FileReader();
-                reader.onload = async (evt) => {
-                    setLoading(true);
-                    try {
-                        const bstr = evt.target.result;
-                        const wb = XLSX.read(bstr, {type:'binary'});
-                        const wsname = wb.SheetNames[0];
-                        const ws = wb.Sheets[wsname];
-                        const data = XLSX.utils.sheet_to_json(ws);
-                        
-                        if (data.length === 0) {
-                            showToast("Excel 檔案內容為空", "error");
-                            setLoading(false);
-                            return;
-                        }
-
-                        // Map data to product structure
-                        const newProducts = data.map(row => {
-                            // Helper to find key case-insensitively or by common names
-                            const getVal = (keys) => {
-                                for (const k of keys) {
-                                    if (row[k] !== undefined) return row[k];
-                                }
-                                return null;
-                            };
-
-                            const name = getVal(['商品名稱', 'Name', '品名', '名稱']) || '未命名商品';
-                            const barcode = getVal(['條碼', 'Barcode', 'barcode']) || generateRandomBarcode();
-                            const category = getVal(['分類', 'Category', '類別']) || '未分類';
-                            const stock = parseInt(getVal(['庫存', 'Stock', '數量']) || 0);
-                            const price = getVal(['售價', 'Price', '價格', '單價']);
-                            const weight = getVal(['重量', 'Weight']) || '';
-                            const desc = getVal(['描述', 'Description', '備註']) || '';
-
-                            const platforms = [];
-                            if (price) {
-                                platforms.push({ name: '現場', price: price });
-                            }
-
-                            return {
-                                name,
-                                barcode: String(barcode),
-                                category,
-                                stock,
-                                weight: String(weight),
-                                description: String(desc),
-                                platforms,
-                                salesHistory: [],
-                                customFields: [],
-                                companyId: companyId || undefined,
-                                timestamp: { seconds: Date.now() / 1000 }, // Fallback for local
-                                lastEditor: user.displayName || 'Import'
-                            };
-                        });
-
-                        // Batch Save Logic
-                        let successCount = 0;
-                        if (isConfigured && !isDemoMode) {
-                            // Firestore Batch (Chunking by 400 to be safe)
-                            const chunkSize = 400;
-                            const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app';
-                            let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products');
-                            
-                            for (let i = 0; i < newProducts.length; i += chunkSize) {
-                                const chunk = newProducts.slice(i, i + chunkSize);
-                                const batch = db.batch();
-                                chunk.forEach(p => {
-                                    // Add timestamp for Firestore
-                                    p.timestamp = firebase.firestore.FieldValue.serverTimestamp();
-                                    const docRef = ref.doc();
-                                    batch.set(docRef, p);
-                                });
-                                await batch.commit();
-                                successCount += chunk.length;
-                            }
-                        } else {
-                            // LocalDB
-                            const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`;
-                            newProducts.forEach(p => LocalDB.add(collection, p));
-                            setProducts(LocalDB.getAll(collection)); // Refresh
-                            successCount = newProducts.length;
-                        }
-
-                        showToast(`成功匯入 ${successCount} 筆資料！`, "success");
-                        e.target.value = null; // Reset input
-                    } catch (err) {
-                        console.error("Import Error:", err);
-                        showToast("匯入失敗，請檢查格式", "error");
-                    }
-                    setLoading(false);
-                };
-                reader.readAsBinaryString(file);
-            };
+            const handleExportExcel = () => { if (products.length === 0) return showToast("沒有資料可匯出", "error"); const allPlatformNames = new Set(); products.forEach(p => { if (p.platforms) { p.platforms.forEach(pl => { if (pl.name) allPlatformNames.add(pl.name); }); } }); const platformHeaders = Array.from(allPlatformNames).sort(); const headers = ["商品名稱", "條碼 (Barcode)", "分類", "庫存", "重量", ...platformHeaders.map(p => `價格 (${p})`), "最新成交日期", "最新成交價", "歷史成交紀錄"]; const data = products.map(p => { const platformPrices = platformHeaders.map(headerName => { const found = (p.platforms || []).find(pl => pl.name === headerName); return found ? found.price : ""; }); const hasHistory = p.salesHistory && p.salesHistory.length > 0; const latestDate = hasHistory ? p.salesHistory[0].date : "-"; const latestPrice = hasHistory ? p.salesHistory[0].price : (p.lastSoldPrice || 0); const historyStr = (p.salesHistory || []).map(h => `${h.date}: $${h.price}${h.note ? '('+h.note+')' : ''}`).join(" | "); return [p.name, p.barcode, p.category, p.stock, p.weight || '', ...platformPrices, latestDate, latestPrice, historyStr]; }); const wsData = [headers, ...data]; const ws = XLSX.utils.aoa_to_sheet(wsData); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "庫存清單"); XLSX.writeFile(wb, `inventory_export_${new Date().toISOString().slice(0,10)}.xlsx`); showToast("匯出 Excel (.xlsx) 成功！", "success"); };
 
             const filteredProducts = products.filter(p => {
                 const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.barcode.includes(searchTerm);
                 const matchesCategory = selectedCategory === '全部' || (p.category || '未分類') === selectedCategory;
                 return matchesSearch && matchesCategory;
             });
+
+            // --- Bulk Selection Logic ---
+            const toggleSelectionMode = () => {
+                setIsSelectionMode(!isSelectionMode);
+                setSelectedIds(new Set());
+            };
+
+            const toggleSelectItem = (id) => {
+                const newSet = new Set(selectedIds);
+                if (newSet.has(id)) newSet.delete(id);
+                else newSet.add(id);
+                setSelectedIds(newSet);
+            };
+
+            const handleBulkDelete = async () => {
+                if (selectedIds.size === 0) return;
+                if (!confirm(`確定要刪除選取的 ${selectedIds.size} 個商品嗎？\n(此動作無法復原)`)) return;
+                
+                setLoading(true);
+                try {
+                    if (isConfigured && !isDemoMode) {
+                        const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app';
+                        let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products');
+                        const batch = db.batch();
+                        selectedIds.forEach(id => {
+                            batch.delete(ref.doc(id));
+                        });
+                        await batch.commit();
+                    } else {
+                        const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`;
+                        let items = LocalDB.getAll(collection);
+                        items = items.filter(item => !selectedIds.has(item.id));
+                        LocalDB.saveAll(collection, items);
+                        setProducts(items);
+                    }
+                    showToast(`已刪除 ${selectedIds.size} 個商品`, "success");
+                    setIsSelectionMode(false);
+                    setSelectedIds(new Set());
+                } catch(e) {
+                    showToast("批量刪除失敗", "error");
+                    console.error(e);
+                }
+                setLoading(false);
+            };
+
+            const handleBulkMoveCategory = async () => {
+                if (selectedIds.size === 0) return;
+                const targetCat = prompt("請輸入要移動到的新分類名稱：");
+                if (!targetCat) return;
+
+                setLoading(true);
+                try {
+                    if (isConfigured && !isDemoMode) {
+                        const appId = typeof __app_id !== 'undefined' ? __app_id : 'inventory-app';
+                        let ref = companyId ? db.collection('artifacts').doc(appId).collection('public').doc('data').collection('shared_inventory') : db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('products');
+                        const batch = db.batch();
+                        selectedIds.forEach(id => {
+                            batch.update(ref.doc(id), { category: targetCat });
+                        });
+                        await batch.commit();
+                    } else {
+                        const collection = companyId ? `shared_${companyId}` : `user_${user.uid}`;
+                        selectedIds.forEach(id => {
+                            LocalDB.update(collection, id, { category: targetCat });
+                        });
+                        setProducts(LocalDB.getAll(collection));
+                    }
+                    
+                    // Add to manual cats if new
+                    if (!categories.includes(targetCat) && !manualCats.includes(targetCat)) {
+                         handleAddManualCategory(targetCat);
+                    }
+
+                    showToast(`已將 ${selectedIds.size} 個商品移至「${targetCat}」`, "success");
+                    setIsSelectionMode(false);
+                    setSelectedIds(new Set());
+                } catch(e) {
+                    showToast("批量移動失敗", "error");
+                }
+                setLoading(false);
+            };
+
+            const toggleSelectAll = () => {
+                if (selectedIds.size === filteredProducts.length) {
+                    setSelectedIds(new Set());
+                } else {
+                    const newSet = new Set();
+                    filteredProducts.forEach(p => newSet.add(p.id));
+                    setSelectedIds(newSet);
+                }
+            };
 
             if (!user) return <><LoginScreen onLogin={handleLogin} onRegister={handleRegister} onGoogleLogin={handleGoogleLogin} onDemoLogin={handleDemoLogin} />{toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}</>;
             if (view === 'settings') return <SettingsView companyId={companyId} setCompanyId={setCompanyId} apiKey={apiKey} setApiKey={setApiKey} onClose={() => setView('list')} userEmail={user.email} isDarkMode={isDarkMode} toggleDarkMode={() => setIsDarkMode(!isDarkMode)} isDemoMode={isDemoMode} onSaveSettings={handleSettingsSave} />;
@@ -720,60 +527,107 @@
                                 <h1 className="text-2xl font-bold flex items-center gap-2">庫存 {companyId && <span className="text-xs bg-blue-800 dark:bg-slate-700 px-2 py-1 rounded ml-2 hidden md:inline-block">{companyId}</span>}</h1>
                                 {companyId && <span className="text-xs bg-blue-800 dark:bg-slate-700 px-2 py-1 rounded ml-2 md:hidden">{companyId}</span>}
                                 <div className="flex gap-2">
-                                    <input type="file" id="import-excel" accept=".xlsx, .xls, .csv" onChange={handleImportExcel} className="hidden" />
-                                    <button onClick={() => document.getElementById('import-excel').click()} className="p-2 hover:bg-blue-700 dark:hover:bg-slate-600 rounded-full transition-colors flex items-center gap-1" title="匯入 Excel">
-                                        <Upload size={24} /> <span className="text-xs font-bold hidden md:inline">匯入</span>
-                                    </button>
-                                    <button onClick={handleExportExcel} className="p-2 hover:bg-blue-700 dark:hover:bg-slate-600 rounded-full transition-colors flex items-center gap-1" title="匯出正規 Excel (.xlsx)">
-                                        <Download size={24} /> <span className="text-xs font-bold hidden md:inline">匯出</span>
-                                    </button>
-                                    <button onClick={() => setView('settings')} className="p-2 hover:bg-blue-700 dark:hover:bg-slate-600 rounded-full transition-colors"><Settings size={24} /></button>
-                                    <button onClick={handleLogout} className="p-2 hover:bg-blue-700 dark:hover:bg-slate-600 rounded-full transition-colors"><LogOut size={24} /></button>
+                                    {!isSelectionMode ? (
+                                        <>
+                                            <button onClick={handleExportExcel} className="p-2 hover:bg-blue-700 dark:hover:bg-slate-600 rounded-full transition-colors flex items-center gap-1" title="匯出正規 Excel (.xlsx)">
+                                                <Download size={24} /> <span className="text-xs font-bold hidden md:inline">匯出</span>
+                                            </button>
+                                            <button onClick={() => setView('settings')} className="p-2 hover:bg-blue-700 dark:hover:bg-slate-600 rounded-full transition-colors"><Settings size={24} /></button>
+                                            <button onClick={handleLogout} className="p-2 hover:bg-blue-700 dark:hover:bg-slate-600 rounded-full transition-colors"><LogOut size={24} /></button>
+                                        </>
+                                    ) : (
+                                        <button onClick={toggleSelectionMode} className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-bold">退出選擇</button>
+                                    )}
                                 </div>
                             </div>
-                            <div className="flex gap-2 items-center relative mb-4">
-                                <div className="relative flex-1"><Search className="absolute left-3 top-3 text-blue-200 dark:text-slate-400" size={20} /><input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="搜尋商品名稱或條碼..." className="w-full bg-blue-700/50 dark:bg-slate-700 text-white placeholder-blue-200 dark:placeholder-slate-400 rounded-xl py-3 pl-10 outline-none focus:ring-2 focus:ring-blue-400 dark:focus:ring-slate-500 transition-all" /></div>
-                                <div className="bg-blue-500 hover:bg-blue-400 dark:bg-slate-600 dark:hover:bg-slate-500 p-3 rounded-xl cursor-pointer transition-colors" onClick={() => { setScanCallback('search'); setView('scan'); }}><Barcode className="text-white" size={24} /></div>
-                            </div>
+                            
+                            {!isSelectionMode && (
+                                <div className="flex gap-2 items-center relative mb-4">
+                                    <div className="relative flex-1"><Search className="absolute left-3 top-3 text-blue-200 dark:text-slate-400" size={20} /><input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="搜尋商品名稱或條碼..." className="w-full bg-blue-700/50 dark:bg-slate-700 text-white placeholder-blue-200 dark:placeholder-slate-400 rounded-xl py-3 pl-10 outline-none focus:ring-2 focus:ring-blue-400 dark:focus:ring-slate-500 transition-all" /></div>
+                                    <div className="bg-blue-500 hover:bg-blue-400 dark:bg-slate-600 dark:hover:bg-slate-500 p-3 rounded-xl cursor-pointer transition-colors" onClick={() => { setScanCallback('search'); setView('scan'); }}><Barcode className="text-white" size={24} /></div>
+                                </div>
+                            )}
+
                             <div className="flex gap-2 items-center">
-                                <div className="relative flex-1">
-                                    <select 
-                                        value={selectedCategory} 
-                                        onChange={(e) => setSelectedCategory(e.target.value)}
-                                        className="w-full appearance-none bg-blue-700/50 hover:bg-blue-700 dark:bg-slate-700 text-white border-0 rounded-xl py-3 pl-4 pr-10 font-bold outline-none focus:ring-2 focus:ring-white/30 transition-colors cursor-pointer"
-                                    >
-                                        {categories.map(cat => {
-                                            const count = products.filter(p => (p.category || '未分類') === (cat === '全部' ? (p.category || '未分類') : cat)).length;
-                                            return (
-                                                <option key={cat} value={cat} className="text-gray-900 bg-white">
-                                                    {cat} {cat !== '全部' ? `(${count})` : ''}
-                                                </option>
-                                            );
-                                        })}
-                                    </select>
-                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-blue-200">
-                                        <svg className="fill-current h-5 w-5" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+                                {isSelectionMode ? (
+                                    <div className="flex-1 flex items-center justify-between bg-blue-700/50 rounded-xl px-4 py-3">
+                                        <span className="font-bold">已選取 {selectedIds.size} 項</span>
+                                        <button onClick={toggleSelectAll} className="text-sm bg-white text-blue-600 px-3 py-1 rounded-lg font-bold">
+                                            {selectedIds.size === filteredProducts.length ? '取消全選' : '全選'}
+                                        </button>
                                     </div>
-                                </div>
-                                <button onClick={() => setShowCatManager(true)} className="p-3 bg-blue-700/50 hover:bg-blue-700 dark:bg-slate-700 rounded-xl text-white shadow-sm flex items-center gap-1 transition-colors whitespace-nowrap">
-                                    <Edit2 size={18}/>
-                                    <span className="text-sm font-bold hidden md:inline">管理分類</span>
-                                </button>
+                                ) : (
+                                    <>
+                                        <div className="relative flex-1">
+                                            <select 
+                                                value={selectedCategory} 
+                                                onChange={(e) => setSelectedCategory(e.target.value)}
+                                                className="w-full appearance-none bg-blue-700/50 hover:bg-blue-700 dark:bg-slate-700 text-white border-0 rounded-xl py-3 pl-4 pr-10 font-bold outline-none focus:ring-2 focus:ring-white/30 transition-colors cursor-pointer"
+                                            >
+                                                {categories.map(cat => {
+                                                    const count = products.filter(p => (p.category || '未分類') === (cat === '全部' ? (p.category || '未分類') : cat)).length;
+                                                    return (
+                                                        <option key={cat} value={cat} className="text-gray-900 bg-white">
+                                                            {cat} {cat !== '全部' ? `(${count})` : ''}
+                                                        </option>
+                                                    );
+                                                })}
+                                            </select>
+                                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-blue-200">
+                                                <svg className="fill-current h-5 w-5" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+                                            </div>
+                                        </div>
+                                        <button onClick={toggleSelectionMode} className="p-3 bg-blue-700/50 hover:bg-blue-700 dark:bg-slate-700 rounded-xl text-white shadow-sm flex items-center gap-1 transition-colors whitespace-nowrap" title="批量管理">
+                                            <CheckSquare size={18}/>
+                                            <span className="text-sm font-bold hidden md:inline">批量</span>
+                                        </button>
+                                        <button onClick={() => setShowCatManager(true)} className="p-3 bg-blue-700/50 hover:bg-blue-700 dark:bg-slate-700 rounded-xl text-white shadow-sm flex items-center gap-1 transition-colors whitespace-nowrap">
+                                            <Edit2 size={18}/>
+                                            <span className="text-sm font-bold hidden md:inline">管理分類</span>
+                                        </button>
+                                    </>
+                                )}
                             </div>
                         </div>
                     </div>
 
                     <div className="p-4 max-w-7xl mx-auto">
                         {isDemoMode && <div className="mb-4 p-3 bg-orange-100 text-orange-800 text-sm rounded-lg flex items-center justify-center gap-2 border border-orange-200"><AlertCircle size={16}/> 目前為演示模式，資料不會上傳雲端</div>}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-20">
                             {filteredProducts.length === 0 ? 
                                 <div className="col-span-full text-center py-20 text-gray-400 dark:text-slate-500"><Barcode size={48} className="mx-auto opacity-20 mb-4" /><p>沒有找到「{selectedCategory}」相關商品</p></div> 
-                                : filteredProducts.map(p => <ProductCard key={p.id} product={p} onClick={() => { setCurrentProduct(p); setView('detail'); }} />)
+                                : filteredProducts.map(p => (
+                                    <ProductCard 
+                                        key={p.id} 
+                                        product={p} 
+                                        onClick={() => { setCurrentProduct(p); setView('detail'); }} 
+                                        isSelectionMode={isSelectionMode}
+                                        isSelected={selectedIds.has(p.id)}
+                                        onToggleSelect={toggleSelectItem}
+                                    />
+                                ))
                             }
                         </div>
                     </div>
 
-                    <button onClick={() => { setCurrentProduct({name:'', barcode:generateRandomBarcode(), platforms:[{name:'蝦皮',price:''},{name:'FB',price:''},{name:'現場',price:''}], stock: '', weight: '', customFields:[], salesHistory: [], category: ''}); setView('edit'); }} className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 text-white w-14 h-14 rounded-full shadow-xl flex items-center justify-center z-30 transition-transform active:scale-95"><Plus size={28} /></button>
+                    {/* Bottom Action Bar for Bulk Mode */}
+                    {isSelectionMode && selectedIds.size > 0 && (
+                        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-white dark:bg-slate-800 rounded-full shadow-2xl px-6 py-3 flex gap-4 items-center z-40 border border-gray-200 dark:border-slate-700">
+                            <button onClick={handleBulkMoveCategory} className="flex flex-col items-center gap-1 text-blue-600 dark:text-blue-400 hover:text-blue-700">
+                                <FolderInput size={20}/>
+                                <span className="text-xs font-bold">移動分類</span>
+                            </button>
+                            <div className="w-px h-8 bg-gray-200 dark:bg-slate-600"></div>
+                            <button onClick={handleBulkDelete} className="flex flex-col items-center gap-1 text-red-600 dark:text-red-400 hover:text-red-700">
+                                <Trash2 size={20}/>
+                                <span className="text-xs font-bold">刪除 ({selectedIds.size})</span>
+                            </button>
+                        </div>
+                    )}
+
+                    {!isSelectionMode && (
+                        <button onClick={() => { setCurrentProduct({name:'', barcode:generateRandomBarcode(), platforms:[{name:'蝦皮',price:''},{name:'FB',price:''},{name:'現場',price:''}], stock: '', weight: '', customFields:[], salesHistory: [], category: ''}); setView('edit'); }} className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 text-white w-14 h-14 rounded-full shadow-xl flex items-center justify-center z-30 transition-transform active:scale-95"><Plus size={28} /></button>
+                    )}
                     
                     {/* Detail View */}
                     {view === 'detail' && currentProduct && (
@@ -784,45 +638,23 @@
                                         <img src={currentProduct.image} className="w-full h-full object-cover" />
                                     </div>
                                     <div className="p-6 md:p-8">
-                                        <div className="flex justify-between items-start mb-2">
-                                            <h1 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-white flex-1">{currentProduct.name}</h1>
-                                            <button onClick={() => handleCopyText(currentProduct.name, "商品名稱")} className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-full transition-colors"><Copy size={20}/></button>
-                                        </div>
+                                        <h1 className="text-2xl md:text-3xl font-bold mb-2 text-gray-800 dark:text-white">{currentProduct.name}</h1>
                                         <div className="flex gap-2 text-gray-500 dark:text-slate-400 mb-6 items-center flex-wrap">
                                             <Barcode /> <span className="font-mono text-lg mr-2">{currentProduct.barcode}</span>
                                             {currentProduct.barcodeImage && <div className="relative group cursor-pointer mr-2" onClick={() => window.open(currentProduct.barcodeImage)}><ImageIcon size={16} className="text-blue-500"/><span className="absolute bottom-full left-1/2 -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">查看原始標籤</span></div>}
                                             {currentProduct.weight && <span className="text-xs px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 rounded-full flex items-center gap-1 font-bold mr-2"><Scale size={12}/>{currentProduct.weight}</span>}
+                                            <span className={`text-xs px-2 py-1 rounded-full flex items-center gap-1 font-bold ${currentProduct.stock > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}><Archive size={12}/> 庫存: {currentProduct.stock || 0}</span>
                                             {currentProduct.category && <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-300 rounded-full flex items-center gap-1"><Tag size={12}/>{currentProduct.category}</span>}
                                         </div>
-
-                                        {/* Quick Stock & Pricing */}
-                                        <div className="mb-6 bg-gray-50 dark:bg-slate-700/50 p-4 rounded-xl border border-gray-100 dark:border-slate-700 flex flex-col md:flex-row gap-4 justify-between items-center">
-                                            <div className="flex items-center gap-4 w-full md:w-auto">
-                                                <div className="text-sm text-gray-500 dark:text-slate-400 font-bold whitespace-nowrap">快速庫存調整</div>
-                                                <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-1 rounded-lg border border-gray-200 dark:border-slate-600 shadow-sm flex-1 md:flex-none justify-center">
-                                                    <button onClick={() => handleQuickStockUpdate(-1)} className="w-10 h-10 flex items-center justify-center bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-colors font-bold disabled:opacity-50" disabled={(currentProduct.stock||0) <= 0}><Minus size={18}/></button>
-                                                    <span className={`w-12 text-center font-bold text-xl ${(currentProduct.stock||0) <= 3 ? 'text-red-500' : 'text-gray-800 dark:text-white'}`}>{currentProduct.stock || 0}</span>
-                                                    <button onClick={() => handleQuickStockUpdate(1)} className="w-10 h-10 flex items-center justify-center bg-green-50 hover:bg-green-100 text-green-600 rounded-lg transition-colors font-bold"><Plus size={18}/></button>
-                                                </div>
-                                            </div>
-                                            <div className="w-full h-px bg-gray-200 dark:bg-slate-600 md:w-px md:h-10"></div>
-                                            <div className="flex gap-4 overflow-x-auto w-full md:w-auto pb-2 md:pb-0">
-                                                 {(currentProduct.platforms||[]).map((p,i)=> (<div key={i} className="flex-shrink-0 bg-white dark:bg-slate-800 px-4 py-2 rounded-lg border border-gray-100 dark:border-slate-600 shadow-sm text-center"><div className="text-xs text-gray-500 dark:text-slate-400">{p.name}</div><div className="font-bold text-blue-600 dark:text-blue-400">${p.price}</div></div>))}
-                                            </div>
-                                        </div>
-
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                             <div className="space-y-6">
                                                 {/* AI Sales Strategy Section */}
                                                 <div className="bg-indigo-50 dark:bg-indigo-900/20 p-5 rounded-xl border border-indigo-100 dark:border-indigo-800">
                                                     <div className="flex justify-between items-center mb-3">
                                                         <h3 className="text-sm font-bold text-indigo-700 dark:text-indigo-300 uppercase flex items-center gap-2"><Brain size={16}/> AI 銷售顧問</h3>
-                                                        <div className="flex gap-1">
-                                                             <button onClick={() => handleCopyText(currentProduct.aiAnalysis, "AI 分析")} disabled={!currentProduct.aiAnalysis} className="p-1.5 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-100 rounded-full transition-colors disabled:opacity-0"><Copy size={14}/></button>
-                                                             <button onClick={handleAISalesStrategy} disabled={aiLoading} className={`text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-full flex items-center gap-1 transition-all shadow-sm ${aiLoading?'opacity-70 cursor-wait':''}`}>
-                                                                <Sparkles size={12}/> {aiLoading ? '分析中...' : (currentProduct.aiAnalysis ? '重新分析' : '生成策略')}
-                                                            </button>
-                                                        </div>
+                                                        <button onClick={handleAISalesStrategy} disabled={aiLoading} className={`text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-full flex items-center gap-1 transition-all shadow-sm ${aiLoading?'opacity-70 cursor-wait':''}`}>
+                                                            <Sparkles size={12}/> {aiLoading ? '分析中...' : (currentProduct.aiAnalysis ? '重新分析' : '生成策略')}
+                                                        </button>
                                                     </div>
                                                     {currentProduct.aiAnalysis ? (
                                                         <div className="prose prose-sm dark:prose-invert max-w-none text-gray-700 dark:text-slate-300 text-sm leading-relaxed" dangerouslySetInnerHTML={{__html: marked.parse(currentProduct.aiAnalysis)}}></div>
@@ -849,9 +681,11 @@
                                                 </div>
                                             </div>
                                             <div className="space-y-4">
-                                                {currentProduct.description && <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-xl relative group"><button onClick={() => handleCopyText(currentProduct.description, "銷售文案")} className="absolute top-2 right-2 p-1.5 text-purple-400 hover:text-purple-600 hover:bg-purple-100 rounded-full transition-colors opacity-0 group-hover:opacity-100"><Copy size={16}/></button><h3 className="text-xs font-bold text-purple-600 dark:text-purple-300 uppercase mb-2">銷售文案</h3><div className="text-sm text-gray-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">{currentProduct.description}</div></div>}
+                                                <h3 className="font-bold text-gray-700 dark:text-slate-300">平台價格</h3>
+                                                <div className="grid grid-cols-2 gap-3">{(currentProduct.platforms||[]).map((p,i)=> (<div key={i} className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl text-center border border-blue-100 dark:border-blue-800"><div className="text-blue-600 dark:text-blue-300 font-bold text-sm mb-1">{p.name}</div><div className="text-xl font-bold text-gray-800 dark:text-white">${p.price}</div></div>))}</div>
                                             </div>
                                         </div>
+                                        {currentProduct.description && <div className="mt-6 bg-purple-50 dark:bg-purple-900/20 p-4 rounded-xl"><h3 className="text-xs font-bold text-purple-600 dark:text-purple-300 uppercase mb-2">銷售文案</h3><div className="text-sm text-gray-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">{currentProduct.description}</div></div>}
                                     </div>
                                 </div>
                                 {/* Fixed Floating Buttons */}
@@ -901,7 +735,7 @@
                                                         <label className="text-xs font-bold text-gray-500 dark:text-slate-400 uppercase ml-1">庫存數量 (Stock)</label>
                                                         <div className="relative">
                                                             <Archive className="absolute left-3 top-3 text-gray-400" size={18}/>
-                                                            <input type="tel" value={currentProduct.stock} onChange={e => setCurrentProduct({...currentProduct, stock: e.target.value === '' ? '' : parseInt(e.target.value)})} className="w-full pl-10 p-3 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 dark:text-white focus:border-blue-500 rounded-lg outline-none" placeholder="0" />
+                                                            <input type="number" value={currentProduct.stock} onChange={e => setCurrentProduct({...currentProduct, stock: e.target.value === '' ? '' : parseInt(e.target.value)})} className="w-full pl-10 p-3 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 dark:text-white focus:border-blue-500 rounded-lg outline-none" placeholder="0" />
                                                         </div>
                                                     </div>
                                                 </div>
@@ -953,6 +787,26 @@
                                                         </div>
                                                     </div>
                                                 </div>
+                                            </div>
+
+                                            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 space-y-3">
+                                                <label className="text-xs font-bold text-orange-600 dark:text-orange-400 uppercase flex items-center gap-2"><Clock size={14}/> 歷史銷售紀錄管理</label>
+                                                <div className="flex flex-col gap-2 bg-orange-50 dark:bg-orange-900/10 p-3 rounded-lg border border-orange-100 dark:border-orange-800/50">
+                                                    <div className="flex gap-2">
+                                                        <input type="date" value={newHistory.date} onChange={e=>setNewHistory({...newHistory, date:e.target.value})} className="flex-1 p-2 bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-lg text-sm dark:text-white outline-none focus:border-orange-500" />
+                                                        <input type="number" value={newHistory.price} onChange={e=>setNewHistory({...newHistory, price:e.target.value})} className="w-24 p-2 bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-lg text-sm dark:text-white outline-none focus:border-orange-500" placeholder="價格 $" />
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        <input value={newHistory.note} onChange={e=>setNewHistory({...newHistory, note:e.target.value})} className="flex-1 p-2 bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-lg text-sm dark:text-white outline-none focus:border-orange-500" placeholder="備註 (如: 直播優惠)" />
+                                                        <button onClick={handleAddHistory} className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold rounded-lg whitespace-nowrap">➕ 加入</button>
+                                                    </div>
+                                                </div>
+                                                <div className="max-h-40 overflow-y-auto space-y-2 mt-2">{currentProduct.salesHistory?.map((h, i) => (<div key={h.id || i} className="flex justify-between items-center bg-gray-50 dark:bg-slate-700/50 p-2 rounded-lg text-sm border border-gray-100 dark:border-slate-700"><div className="flex-1"><span className="font-mono text-gray-500 dark:text-slate-400 mr-2">{h.date}</span><span className="font-bold text-gray-800 dark:text-white mr-2">${h.price}</span><span className="text-gray-400 text-xs">{h.note}</span></div><button onClick={()=>{const n=currentProduct.salesHistory.filter(x=>x.id!==h.id);setCurrentProduct({...currentProduct,salesHistory:n})}} className="text-red-400 hover:text-red-600 p-1"><X size={14}/></button></div>))}</div>
+                                            </div>
+
+                                            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700">
+                                                <div className="flex justify-between mb-2 items-center"><label className="text-xs font-bold text-gray-500 dark:text-slate-400 uppercase">銷售文案</label><button onClick={handleAIGenerateDesc} className="text-xs bg-purple-100 dark:bg-purple-900/50 hover:bg-purple-200 dark:hover:bg-purple-900 text-purple-700 dark:text-purple-300 px-3 py-1 rounded-full flex gap-1 transition-colors"><Wand size={12}/> AI 生成</button></div>
+                                                <textarea value={currentProduct.description||''} onChange={e=>setCurrentProduct({...currentProduct, description:e.target.value})} className="w-full p-3 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 dark:text-white rounded-lg h-24 outline-none focus:border-purple-500 transition-all resize-none" placeholder="輸入或生成銷售文案..." />
                                             </div>
 
                                             <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 space-y-3">
